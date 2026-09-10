@@ -1,6 +1,5 @@
 import type { Lang } from '@/lib/types';
 import DICT from '@/lib/dict';
-import LogoMark from './LogoMark';
 
 interface Props {
   lang: Lang;
@@ -13,8 +12,7 @@ export default function Nav({ lang, setLang }: Props) {
     <nav className="nav" id="top">
       <div className="nav-inner">
         <a href="#top" className="logo-lockup" aria-label="Viajeros Paraguaná">
-          <LogoMark size={38} color="var(--ink)" />
-          <div className="wm">VIAJEROS<small>PARAGUANÁ</small></div>
+          <img src="/images/horizontal-full-logo-black.png" alt="Viajeros Paraguaná" width={180} />
         </a>
         <div className="nav-links">
           <a href="#about">{t.nav.about}</a>

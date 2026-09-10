@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Keystone/Prisma generated output — never hand-written, never linted.
+    "generated/**",
+    ".keystone/**",
   ]),
 ]);
 

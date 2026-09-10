@@ -4,22 +4,49 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "dev:cms": "keystone dev",
+    "build": "prisma generate && next build",
+    "build:cms": "keystone build",
     "start": "next start",
-    "lint": "eslint"
+    "start:cms": "prisma migrate deploy && keystone start",
+    "lint": "eslint",
+    "postinstall": "keystone postinstall",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx keystone/seed.ts",
+    "db:reset": "prisma migrate reset",
+    "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
+    "@keystar/ui": "~0.10.0",
+    "@keystone-6/auth": "10.0.5",
+    "@keystone-6/core": "8.1.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@vercel/blob": "^2.8.0",
+    "graphql": "^16.14.2",
     "next": "16.2.4",
+    "pg": "^8.23.0",
     "react": "19.2.4",
+    "react-aria": "3.50.0",
     "react-dom": "19.2.4",
+    "react-stately": "3.48.0",
     "resend": "^6.12.2"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "prisma": "7.10.0",
+    "tsx": "^4.23.13",
     "typescript": "^5"
+  },
+  "overrides": {
+    "react-aria": "3.50.0",
+    "react-stately": "3.48.0"
   }
 }

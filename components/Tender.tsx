@@ -76,7 +76,7 @@ export default function Tender({ lang }: Props) {
     <section className="section" id="tender">
       <div className="page" style={{ padding: 0 }}>
         <div className="tender">
-          <div style={{ position: 'absolute', right: -80, top: -80, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', right: -60, top: -35, opacity: 0.25, pointerEvents: 'none' }}>
             <LogoMark size={440} color="rgba(244,244,243,0.05)" />
           </div>
           <div className="tender-grid">

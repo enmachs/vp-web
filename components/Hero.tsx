@@ -30,7 +30,7 @@ export default function Hero({ lang }: Props) {
           <div className="hero-card">
             <Placeholder color="#8a8a8a" hint="HERO.JPG · carretera" rounded="var(--radius-xl)" />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 35%, rgba(14,14,14,0.55) 100%)', borderRadius: 'var(--radius-xl)' }} />
-            <div style={{ position: 'absolute', right: -20, top: -20 }}>
+            <div style={{ position: 'absolute', right: -50, top: -20, opacity: 0.25 }}>
               <LogoMark size={180} color="rgba(14,14,14,0.18)" />
             </div>
             <div className="stats">

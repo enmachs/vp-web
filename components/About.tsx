@@ -29,7 +29,7 @@ export default function About({ lang }: Props) {
               <Placeholder color="#6a6a6a" hint="TEAM.JPG · chófer + van" rounded="var(--radius-md)" />
             </div>
           </div>
-          <div style={{ position: 'absolute', right: -80, bottom: -120, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', right: -80, bottom: -100, opacity: 0.40, pointerEvents: 'none' }}>
             <LogoMark size={380} color="rgba(14,14,14,0.05)" />
           </div>
         </div>
