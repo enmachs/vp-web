@@ -105,14 +105,174 @@ This project features a **modern admin architecture** with:
 ### Core Models
 - **User** - Authentication and user management
 - **Role** - Role-based access control
-- **Todo** - Example content model with relationships
-- **TodoImage** - Image management for Todo items with S3 storage
 
 ### Permission System
 Sophisticated role-based permissions including:
 - `canAccessDashboard`, `canManagePeople`, `canManageRoles`
-- `canCreateTodos`, `canManageAllTodos`
+- `canManageContent`
 - `canSeeOtherPeople`, `canEditOtherPeople`
+
+## Image Management
+
+Images are stored in S3-compatible storage and referenced from Keystone's
+`image()` field type. There are two ways an `image()` field shows up in this
+project, and which one to reach for depends on the cardinality of images per
+record.
+
+### Storage configuration
+
+One named storage target, `my_images`, is declared once in
+[`features/keystone/index.ts`](features/keystone/index.ts) and referenced by
+key from any `image()` field:
+
+```ts
+// features/keystone/index.ts
+const {
+  S3_BUCKET_NAME: bucketName = "keystone-test",
+  S3_REGION: region = "ap-southeast-2",
+  S3_ACCESS_KEY_ID: accessKeyId = "keystone",
+  S3_SECRET_ACCESS_KEY: secretAccessKey = "keystone",
+  S3_ENDPOINT: endpoint = "https://sfo3.digitaloceanspaces.com",
+} = process.env;
+
+export default withAuth(
+  config({
+    // ...
+    storage: {
+      my_images: {
+        kind: "s3",
+        type: "image",
+        bucketName,
+        region,
+        accessKeyId,
+        secretAccessKey,
+        endpoint,
+        signed: { expiry: 5000 },   // signed download URLs, valid 5s after issue
+        forcePathStyle: true,
+      },
+    },
+  })
+);
+```
+
+The fallback values are DigitalOcean Spaces test credentials — fine for
+`keystone build`, not for real uploads. Set the five `S3_*` env vars for
+anything that needs to actually store a file. See `.env.example`.
+
+### Pattern 1 — a single image directly on a list
+
+Use this when a record has exactly one image (a photo, a logo, a cover). Add
+an `image()` field pointing at the storage key:
+
+```ts
+// features/keystone/models/GalleryItem.ts
+import { image } from "@keystone-6/core/fields";
+
+export const GalleryItem = list({
+  fields: {
+    image: image({ storage: "my_images" }),
+    // ...
+  },
+});
+```
+
+### Pattern 2 — many images per record, via a separate list
+
+Use this when a record can have any number of images (a gallery, an
+attachment list). Rather than an array field (Keystone has none), model it as
+its own list with an `image()` field, connected back by a `relationship()`.
+This was `Todo`/`TodoImage`'s pattern before both were removed as
+demo-only content — kept here as the reference for the next time this project
+needs a one-to-many image relationship:
+
+```ts
+// the "many images" list
+export const TodoImage = list({
+  fields: {
+    image: image({ storage: "my_images" }),
+    imagePath: text(),
+    altText: text(),
+    todos: relationship({ ref: "Todo.todoImages", many: true }),
+  },
+});
+
+// the list that owns them
+export const Todo = list({
+  fields: {
+    todoImages: relationship({
+      ref: "TodoImage.todos",
+      many: true,
+      ui: {
+        displayMode: "cards",
+        cardFields: ["image", "altText", "imagePath"],
+        inlineCreate: { fields: ["image", "altText", "imagePath"] },
+        inlineEdit: { fields: ["image", "altText", "imagePath"] },
+        inlineConnect: true,
+        removeMode: "disconnect",
+        linkToItem: false,
+      },
+    }),
+  },
+});
+```
+
+`displayMode: "cards"` with `inlineCreate`/`inlineEdit` is what lets an editor
+upload and caption several images from directly inside the owning record's
+item view, instead of navigating to the `TodoImage` list separately.
+
+### What an `image()` field actually returns
+
+Over GraphQL, an `image()` field resolves to an object, not a bare URL —
+the dashboard's field controller
+([`features/dashboard/views/image/index.tsx`](features/dashboard/views/image/index.tsx))
+selects:
+
+```graphql
+{
+  id
+  url
+  extension
+  filesize
+  width
+  height
+}
+```
+
+`url` is what components render; `width`/`height`/`filesize` are read from
+the file at upload time, not computed client-side.
+
+### How the dashboard's upload/remove flow works
+
+The image field's `Field` component
+([`features/dashboard/views/image/Field.tsx`](features/dashboard/views/image/Field.tsx))
+tracks one of four states — `empty`, `from-server`, `upload` (a file staged
+but not yet saved), `remove` — and serializes them into the update mutation:
+
+```ts
+// features/dashboard/views/image/index.tsx
+serialize(value: ImageValue) {
+  if (value.kind === 'upload') {
+    return { [config.path]: { upload: value.data.file } }  // multipart upload
+  }
+  if (value.kind === 'remove') {
+    return { [config.path]: null }                          // clears the field
+  }
+  return {}                                                  // unchanged
+}
+```
+
+Accepted extensions are declared once, in
+[`features/dashboard/views/image/utils.ts`](features/dashboard/views/image/utils.ts):
+`jpg`, `jpeg`, `png`, `webp`, `gif`.
+
+### Adding a new field type's dashboard view
+
+Every field type used in a list needs a matching entry in
+[`features/dashboard/views/registry.ts`](features/dashboard/views/registry.ts)
+— an unregistered type throws and breaks the whole item page, not just that
+field (see `AGENTS.md`). `image` is already registered; this only matters if
+a list reaches for a field type that isn't yet in use anywhere in this
+project.
 
 ## Project Structure
 

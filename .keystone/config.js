@@ -26,7 +26,7 @@ module.exports = __toCommonJS(keystone_exports);
 
 // features/keystone/index.ts
 var import_auth = require("@keystone-6/auth");
-var import_core11 = require("@keystone-6/core");
+var import_core9 = require("@keystone-6/core");
 var import_config = require("dotenv/config");
 
 // features/keystone/models/User.ts
@@ -39,31 +39,11 @@ function isSignedIn({ session }) {
   return Boolean(session);
 }
 var permissions = {
-  canCreateTodos: ({ session }) => session?.data.role?.canCreateTodos ?? false,
-  canManageAllTodos: ({ session }) => session?.data.role?.canManageAllTodos ?? false,
   canManagePeople: ({ session }) => session?.data.role?.canManagePeople ?? false,
   canManageRoles: ({ session }) => session?.data.role?.canManageRoles ?? false,
   canManageContent: ({ session }) => session?.data.role?.canManageContent ?? false
 };
 var rules = {
-  canReadTodos: ({ session }) => {
-    if (!session) return false;
-    if (session.data.role?.canManageAllTodos) {
-      return {
-        OR: [
-          { assignedTo: { id: { equals: session.itemId } } },
-          { assignedTo: null, isPrivate: { equals: true } },
-          { NOT: { isPrivate: { equals: true } } }
-        ]
-      };
-    }
-    return { assignedTo: { id: { equals: session.itemId } } };
-  },
-  canManageTodos: ({ session }) => {
-    if (!session) return false;
-    if (session.data.role?.canManageAllTodos) return true;
-    return { assignedTo: { id: { equals: session.itemId } } };
-  },
   canReadPeople: ({ session }) => {
     if (!session) return false;
     if (session.data.role?.canSeeOtherPeople) return true;
@@ -98,7 +78,7 @@ var User = (0, import_core.list)({
     hideCreate: (args) => !permissions.canManagePeople(args),
     hideDelete: (args) => !permissions.canManagePeople(args),
     listView: {
-      initialColumns: ["name", "email", "role", "tasks"]
+      initialColumns: ["name", "email", "role"]
     },
     itemView: {
       defaultFieldMode: ({ session, item }) => {
@@ -140,20 +120,6 @@ var User = (0, import_core.list)({
           fieldMode: (args) => permissions.canManagePeople(args) ? "edit" : "read"
         }
       }
-    }),
-    tasks: (0, import_fields.relationship)({
-      ref: "Todo.assignedTo",
-      many: true,
-      access: {
-        create: permissions.canManageAllTodos,
-        update: ({ session, item }) => permissions.canManageAllTodos({ session }) || session?.itemId === item.id
-      },
-      ui: {
-        createView: {
-          fieldMode: (args) => permissions.canManageAllTodos(args) ? "edit" : "hidden"
-        }
-        // itemView: { fieldMode: 'read' },
-      }
     })
   }
 });
@@ -181,8 +147,6 @@ var Role = (0, import_core2.list)({
   },
   fields: {
     name: (0, import_fields2.text)({ validation: { isRequired: true } }),
-    canCreateTodos: (0, import_fields2.checkbox)({ defaultValue: false }),
-    canManageAllTodos: (0, import_fields2.checkbox)({ defaultValue: false }),
     canSeeOtherPeople: (0, import_fields2.checkbox)({ defaultValue: false }),
     canEditOtherPeople: (0, import_fields2.checkbox)({ defaultValue: false }),
     canManagePeople: (0, import_fields2.checkbox)({ defaultValue: false }),
@@ -199,214 +163,22 @@ var Role = (0, import_core2.list)({
   }
 });
 
-// features/keystone/models/Todo.ts
-var import_core3 = require("@keystone-6/core");
-var import_access5 = require("@keystone-6/core/access");
-var import_fields3 = require("@keystone-6/core/fields");
-var import_fields_document = require("@keystone-6/fields-document");
-var Todo = (0, import_core3.list)({
-  access: {
-    operation: {
-      ...(0, import_access5.allOperations)(isSignedIn),
-      create: permissions.canCreateTodos
-    },
-    filter: {
-      query: rules.canReadTodos,
-      update: rules.canManageTodos,
-      delete: rules.canManageTodos
-    }
-  },
-  ui: {
-    hideCreate: (args) => !permissions.canCreateTodos(args),
-    listView: {
-      initialColumns: ["label", "tags", "isComplete", "assignedTo"]
-    }
-  },
-  fields: {
-    // Basic fields
-    label: (0, import_fields3.text)({ validation: { isRequired: true } }),
-    description: (0, import_fields_document.document)({
-      formatting: true,
-      links: true,
-      dividers: true,
-      layouts: [
-        [1, 1],
-        [1, 1, 1],
-        [2, 1]
-      ]
-    }),
-    ...(0, import_core3.group)({
-      label: "Task Status",
-      description: "Track completion and status of the task",
-      fields: {
-        isComplete: (0, import_fields3.checkbox)({ defaultValue: false }),
-        status: (0, import_fields3.select)({
-          type: "string",
-          options: [
-            { label: "Todo", value: "todo" },
-            { label: "In Progress", value: "in_progress" },
-            { label: "Done", value: "done" },
-            { label: "Blocked", value: "blocked" }
-          ],
-          defaultValue: "todo"
-        }),
-        priority: (0, import_fields3.integer)({
-          defaultValue: 1,
-          validation: { min: 1, max: 5 },
-          label: "Priority (1-5)"
-        }),
-        tags: (0, import_fields3.multiselect)({
-          type: "string",
-          options: [
-            { label: "Frontend", value: "frontend" },
-            { label: "Backend", value: "backend" },
-            { label: "Database", value: "database" },
-            { label: "Testing", value: "testing" },
-            { label: "Documentation", value: "documentation" },
-            { label: "Bug Fix", value: "bug_fix" },
-            { label: "Feature", value: "feature" },
-            { label: "Urgent", value: "urgent" },
-            { label: "Nice to Have", value: "nice_to_have" }
-          ],
-          defaultValue: [],
-          label: "Tags"
-        })
-      }
-    }),
-    ...(0, import_core3.group)({
-      label: "Planning & Budget",
-      description: "Schedule and resource allocation",
-      fields: {
-        dueDate: (0, import_fields3.timestamp)({
-          label: "Due Date"
-        }),
-        weight: (0, import_fields3.float)({
-          defaultValue: 1,
-          label: "Weight"
-        }),
-        budget: (0, import_fields3.decimal)({
-          precision: 10,
-          scale: 2,
-          defaultValue: "0.00",
-          label: "Budget"
-        })
-      }
-    }),
-    ...(0, import_core3.group)({
-      label: "Advanced Fields",
-      description: "Additional data and security settings",
-      fields: {
-        isPrivate: (0, import_fields3.checkbox)({ defaultValue: false }),
-        largeNumber: (0, import_fields3.bigInt)({
-          label: "Large Number Example",
-          ui: {
-            description: "Example field for testing BigInt values"
-          }
-        }),
-        metadata: (0, import_fields3.json)({
-          label: "Metadata"
-        }),
-        secretNote: (0, import_fields3.password)({
-          label: "Secret Note"
-        })
-      }
-    }),
-    ...(0, import_core3.group)({
-      label: "Attachments",
-      description: "File attachments for the task",
-      fields: {
-        coverImage: (0, import_fields3.image)({
-          storage: "my_images",
-          label: "Cover Image"
-        }),
-        todoImages: (0, import_fields3.relationship)({
-          ref: "TodoImage.todos",
-          many: true,
-          ui: {
-            displayMode: "cards",
-            cardFields: ["image", "altText", "imagePath"],
-            inlineCreate: { fields: ["image", "altText", "imagePath"] },
-            inlineEdit: { fields: ["image", "altText", "imagePath"] },
-            inlineConnect: true,
-            removeMode: "disconnect",
-            linkToItem: false
-          }
-        })
-      }
-    }),
-    // Virtual field - requires graphql import for proper setup
-    // Let's comment this out for now to avoid complexity
-    // displayName: virtual({
-    //   field: graphql.field({
-    //     type: graphql.String,
-    //     resolve: (item: any) => `${item.label} (${item.status || 'unknown'})`
-    //   })
-    // }),
-    // Relationship field
-    assignedTo: (0, import_fields3.relationship)({
-      ref: "User.tasks",
-      ui: {
-        createView: {
-          fieldMode: (args) => permissions.canManageAllTodos(args) ? "edit" : "hidden"
-        },
-        itemView: {
-          fieldMode: (args) => permissions.canManageAllTodos(args) ? "edit" : "read"
-        }
-      },
-      hooks: {
-        resolveInput({ operation, resolvedData, context }) {
-          if (operation === "create" && !resolvedData.assignedTo && context.session?.itemId) {
-            return { connect: { id: context.session?.itemId } };
-          }
-          return resolvedData.assignedTo;
-        }
-      }
-    })
-  }
-});
-
-// features/keystone/models/TodoImage.ts
-var import_core4 = require("@keystone-6/core");
-var import_fields4 = require("@keystone-6/core/fields");
-var TodoImage = (0, import_core4.list)({
-  access: {
-    operation: {
-      query: isSignedIn,
-      create: permissions.canCreateTodos,
-      update: permissions.canCreateTodos,
-      delete: permissions.canCreateTodos
-    }
-  },
-  fields: {
-    image: (0, import_fields4.image)({ storage: "my_images" }),
-    imagePath: (0, import_fields4.text)(),
-    altText: (0, import_fields4.text)(),
-    todos: (0, import_fields4.relationship)({ ref: "Todo.todoImages", many: true }),
-    metadata: (0, import_fields4.json)()
-  },
-  ui: {
-    listView: {
-      initialColumns: ["image", "imagePath", "altText", "todos"]
-    }
-  }
-});
-
 // features/keystone/models/ServiceType.ts
-var import_core5 = require("@keystone-6/core");
-var import_fields6 = require("@keystone-6/core/fields");
+var import_core3 = require("@keystone-6/core");
+var import_fields4 = require("@keystone-6/core/fields");
 
 // features/keystone/models/shared.ts
-var import_access8 = require("@keystone-6/core/access");
-var import_fields5 = require("@keystone-6/core/fields");
-var sortOrder = () => (0, import_fields5.integer)({ defaultValue: 0, validation: { isRequired: true } });
-var isPublished = () => (0, import_fields5.checkbox)({ defaultValue: true });
-var createdAt = () => (0, import_fields5.timestamp)({
+var import_access5 = require("@keystone-6/core/access");
+var import_fields3 = require("@keystone-6/core/fields");
+var sortOrder = () => (0, import_fields3.integer)({ defaultValue: 0, validation: { isRequired: true } });
+var isPublished = () => (0, import_fields3.checkbox)({ defaultValue: true });
+var createdAt = () => (0, import_fields3.timestamp)({
   defaultValue: { kind: "now" },
   ui: { createView: { fieldMode: "hidden" } }
 });
 var publicReadContentWrite = () => ({
   operation: {
-    query: import_access8.allowAll,
+    query: import_access5.allowAll,
     create: permissions.canManageContent,
     update: permissions.canManageContent,
     delete: permissions.canManageContent
@@ -414,10 +186,10 @@ var publicReadContentWrite = () => ({
 });
 var singletonPublicRead = () => ({
   operation: {
-    query: import_access8.allowAll,
-    create: import_access8.denyAll,
+    query: import_access5.allowAll,
+    create: import_access5.denyAll,
     update: permissions.canManageContent,
-    delete: import_access8.denyAll
+    delete: import_access5.denyAll
   }
 });
 var contentUi = () => ({
@@ -426,7 +198,7 @@ var contentUi = () => ({
 });
 
 // features/keystone/models/ServiceType.ts
-var ServiceType = (0, import_core5.list)({
+var ServiceType = (0, import_core3.list)({
   access: publicReadContentWrite(),
   ui: {
     ...contentUi(),
@@ -436,8 +208,8 @@ var ServiceType = (0, import_core5.list)({
   },
   fields: {
     // Preserves today's GalleryPhoto.cat values: 'trips' | 'pkg' | 'clients'
-    key: (0, import_fields6.text)({ validation: { isRequired: true }, isIndexed: "unique" }),
-    kind: (0, import_fields6.select)({
+    key: (0, import_fields4.text)({ validation: { isRequired: true }, isIndexed: "unique" }),
+    kind: (0, import_fields4.select)({
       type: "enum",
       options: [
         { label: "Service (offered & quotable)", value: "service" },
@@ -447,14 +219,14 @@ var ServiceType = (0, import_core5.list)({
       validation: { isRequired: true },
       ui: { displayMode: "segmented-control" }
     }),
-    nameEs: (0, import_fields6.text)({ validation: { isRequired: true } }),
-    nameEn: (0, import_fields6.text)(),
-    services: (0, import_fields6.relationship)({
+    nameEs: (0, import_fields4.text)({ validation: { isRequired: true } }),
+    nameEn: (0, import_fields4.text)(),
+    services: (0, import_fields4.relationship)({
       ref: "Service.serviceType",
       many: true,
       ui: { displayMode: "count", itemView: { fieldMode: "read" } }
     }),
-    galleryItems: (0, import_fields6.relationship)({
+    galleryItems: (0, import_fields4.relationship)({
       ref: "GalleryItem.serviceType",
       many: true,
       ui: { displayMode: "count", itemView: { fieldMode: "read" } }
@@ -466,9 +238,9 @@ var ServiceType = (0, import_core5.list)({
 });
 
 // features/keystone/models/Service.ts
-var import_core6 = require("@keystone-6/core");
-var import_fields7 = require("@keystone-6/core/fields");
-var Service = (0, import_core6.list)({
+var import_core4 = require("@keystone-6/core");
+var import_fields5 = require("@keystone-6/core/fields");
+var Service = (0, import_core4.list)({
   access: publicReadContentWrite(),
   ui: {
     ...contentUi(),
@@ -478,16 +250,16 @@ var Service = (0, import_core6.list)({
     }
   },
   fields: {
-    slug: (0, import_fields7.text)({ validation: { isRequired: true }, isIndexed: "unique" }),
-    titleEs: (0, import_fields7.text)({ validation: { isRequired: true } }),
-    titleEn: (0, import_fields7.text)(),
-    bodyEs: (0, import_fields7.text)({ ui: { displayMode: "textarea" } }),
-    bodyEn: (0, import_fields7.text)({ ui: { displayMode: "textarea" } }),
+    slug: (0, import_fields5.text)({ validation: { isRequired: true }, isIndexed: "unique" }),
+    titleEs: (0, import_fields5.text)({ validation: { isRequired: true } }),
+    titleEn: (0, import_fields5.text)(),
+    bodyEs: (0, import_fields5.text)({ ui: { displayMode: "textarea" } }),
+    bodyEn: (0, import_fields5.text)({ ui: { displayMode: "textarea" } }),
     // Today's s1Tags / s2Tags string arrays. Keystone has no native
     // string-array field; validate with a guard in the mapping layer.
-    tagsEs: (0, import_fields7.json)({ defaultValue: [] }),
-    tagsEn: (0, import_fields7.json)({ defaultValue: [] }),
-    serviceType: (0, import_fields7.relationship)({ ref: "ServiceType.services", many: false }),
+    tagsEs: (0, import_fields5.json)({ defaultValue: [] }),
+    tagsEn: (0, import_fields5.json)({ defaultValue: [] }),
+    serviceType: (0, import_fields5.relationship)({ ref: "ServiceType.services", many: false }),
     sortOrder: sortOrder(),
     isPublished: isPublished(),
     createdAt: createdAt()
@@ -495,9 +267,9 @@ var Service = (0, import_core6.list)({
 });
 
 // features/keystone/models/GalleryItem.ts
-var import_core7 = require("@keystone-6/core");
-var import_fields8 = require("@keystone-6/core/fields");
-var GalleryItem = (0, import_core7.list)({
+var import_core5 = require("@keystone-6/core");
+var import_fields6 = require("@keystone-6/core/fields");
+var GalleryItem = (0, import_core5.list)({
   access: publicReadContentWrite(),
   ui: {
     ...contentUi(),
@@ -510,9 +282,9 @@ var GalleryItem = (0, import_core7.list)({
   fields: {
     // Uses the project's existing S3 storage rather than vp-web's Vercel Blob
     // adapter, so there is one storage backend for the whole project.
-    image: (0, import_fields8.image)({ storage: "my_images" }),
-    labelEs: (0, import_fields8.text)({ validation: { isRequired: true } }),
-    labelEn: (0, import_fields8.text)(),
+    image: (0, import_fields6.image)({ storage: "my_images" }),
+    labelEs: (0, import_fields6.text)({ validation: { isRequired: true } }),
+    labelEn: (0, import_fields6.text)(),
     // A real date rather than a bilingual pair: 'Mar 2025' vs 'Dic 2024' is a
     // formatting difference, so format with Intl at render time.
     //
@@ -520,10 +292,10 @@ var GalleryItem = (0, import_core7.list)({
     // through features/keystone/view-order and has no calendarDay renderer, so
     // registry.ts would throw and break the whole item view. timestamp() is
     // supported; the time component is simply unused.
-    takenOn: (0, import_fields8.timestamp)(),
+    takenOn: (0, import_fields6.timestamp)(),
     // Tint for the striped placeholder shown until a photo is uploaded.
-    placeholderColor: (0, import_fields8.text)({ defaultValue: "#8a8a8a" }),
-    serviceType: (0, import_fields8.relationship)({ ref: "ServiceType.galleryItems", many: false }),
+    placeholderColor: (0, import_fields6.text)({ defaultValue: "#8a8a8a" }),
+    serviceType: (0, import_fields6.relationship)({ ref: "ServiceType.galleryItems", many: false }),
     sortOrder: sortOrder(),
     isPublished: isPublished(),
     createdAt: createdAt()
@@ -531,9 +303,9 @@ var GalleryItem = (0, import_core7.list)({
 });
 
 // features/keystone/models/ContactInfo.ts
-var import_core8 = require("@keystone-6/core");
-var import_fields9 = require("@keystone-6/core/fields");
-var ContactInfo = (0, import_core8.list)({
+var import_core6 = require("@keystone-6/core");
+var import_fields7 = require("@keystone-6/core/fields");
+var ContactInfo = (0, import_core6.list)({
   isSingleton: true,
   access: singletonPublicRead(),
   ui: {
@@ -542,21 +314,21 @@ var ContactInfo = (0, import_core8.list)({
     hideDelete: true
   },
   fields: {
-    email: (0, import_fields9.text)(),
-    phone: (0, import_fields9.text)(),
-    whatsapp: (0, import_fields9.text)(),
-    addressEs: (0, import_fields9.text)(),
-    addressEn: (0, import_fields9.text)(),
-    mapsUrl: (0, import_fields9.text)(),
-    hoursEs: (0, import_fields9.text)(),
-    hoursEn: (0, import_fields9.text)()
+    email: (0, import_fields7.text)(),
+    phone: (0, import_fields7.text)(),
+    whatsapp: (0, import_fields7.text)(),
+    addressEs: (0, import_fields7.text)(),
+    addressEn: (0, import_fields7.text)(),
+    mapsUrl: (0, import_fields7.text)(),
+    hoursEs: (0, import_fields7.text)(),
+    hoursEn: (0, import_fields7.text)()
   }
 });
 
 // features/keystone/models/SocialLink.ts
-var import_core9 = require("@keystone-6/core");
-var import_fields10 = require("@keystone-6/core/fields");
-var SocialLink = (0, import_core9.list)({
+var import_core7 = require("@keystone-6/core");
+var import_fields8 = require("@keystone-6/core/fields");
+var SocialLink = (0, import_core7.list)({
   access: publicReadContentWrite(),
   ui: {
     ...contentUi(),
@@ -565,7 +337,7 @@ var SocialLink = (0, import_core9.list)({
     listView: { initialColumns: ["label", "platform", "url", "sortOrder"] }
   },
   fields: {
-    platform: (0, import_fields10.select)({
+    platform: (0, import_fields8.select)({
       type: "enum",
       options: [
         { label: "Instagram", value: "instagram" },
@@ -577,9 +349,9 @@ var SocialLink = (0, import_core9.list)({
       validation: { isRequired: true }
     }),
     // Brand nouns — deliberately not bilingual.
-    label: (0, import_fields10.text)({ validation: { isRequired: true } }),
-    url: (0, import_fields10.text)({ validation: { isRequired: true } }),
-    handle: (0, import_fields10.text)(),
+    label: (0, import_fields8.text)({ validation: { isRequired: true } }),
+    url: (0, import_fields8.text)({ validation: { isRequired: true } }),
+    handle: (0, import_fields8.text)(),
     sortOrder: sortOrder(),
     isPublished: isPublished(),
     createdAt: createdAt()
@@ -587,9 +359,9 @@ var SocialLink = (0, import_core9.list)({
 });
 
 // features/keystone/models/Review.ts
-var import_core10 = require("@keystone-6/core");
-var import_fields11 = require("@keystone-6/core/fields");
-var Review = (0, import_core10.list)({
+var import_core8 = require("@keystone-6/core");
+var import_fields9 = require("@keystone-6/core/fields");
+var Review = (0, import_core8.list)({
   access: publicReadContentWrite(),
   ui: {
     ...contentUi(),
@@ -599,24 +371,24 @@ var Review = (0, import_core10.list)({
     }
   },
   fields: {
-    quoteEs: (0, import_fields11.text)({
+    quoteEs: (0, import_fields9.text)({
       validation: { isRequired: true },
       ui: { displayMode: "textarea" }
     }),
-    quoteEn: (0, import_fields11.text)({ ui: { displayMode: "textarea" } }),
+    quoteEn: (0, import_fields9.text)({ ui: { displayMode: "textarea" } }),
     // Proper nouns — not bilingual.
-    authorName: (0, import_fields11.text)({ validation: { isRequired: true } }),
-    initials: (0, import_fields11.text)({ validation: { isRequired: true } }),
+    authorName: (0, import_fields9.text)({ validation: { isRequired: true } }),
+    initials: (0, import_fields9.text)({ validation: { isRequired: true } }),
     // The 'where' line, e.g. 'Encomienda · Coro'
-    contextEs: (0, import_fields11.text)(),
-    contextEn: (0, import_fields11.text)(),
-    rating: (0, import_fields11.integer)({
+    contextEs: (0, import_fields9.text)(),
+    contextEn: (0, import_fields9.text)(),
+    rating: (0, import_fields9.integer)({
       defaultValue: 5,
       validation: { isRequired: true, min: 1, max: 5 }
     }),
     // Replaces the presentational `dark` flag: content-meaningful, and the
     // component decides how a featured review is styled.
-    isFeatured: (0, import_fields11.checkbox)({ defaultValue: false }),
+    isFeatured: (0, import_fields9.checkbox)({ defaultValue: false }),
     sortOrder: sortOrder(),
     isPublished: isPublished(),
     createdAt: createdAt()
@@ -627,8 +399,6 @@ var Review = (0, import_core10.list)({
 var models = {
   User,
   Role,
-  Todo,
-  TodoImage,
   // Public content for the landing page — see features/keystone/models/shared.ts
   ServiceType,
   Service,
@@ -762,8 +532,6 @@ var { withAuth } = (0, import_auth.createAuth)({
       role: {
         create: {
           name: "Admin",
-          canCreateTodos: true,
-          canManageAllTodos: true,
           canSeeOtherPeople: true,
           canEditOtherPeople: true,
           canManagePeople: true,
@@ -785,8 +553,6 @@ var { withAuth } = (0, import_auth.createAuth)({
     role {
       id
       name
-      canCreateTodos
-      canManageAllTodos
       canSeeOtherPeople
       canEditOtherPeople
       canManagePeople
@@ -797,7 +563,7 @@ var { withAuth } = (0, import_auth.createAuth)({
   `
 });
 var keystone_default = withAuth(
-  (0, import_core11.config)({
+  (0, import_core9.config)({
     db: {
       provider: "postgresql",
       url: databaseURL

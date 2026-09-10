@@ -38,19 +38,24 @@ top-level `storage`, and `initFirstItem` directly. Verify against
   invocation + round trip per navigation) and a real failure mode — see
   `VERCEL-DEPLOYMENT-NOTES.md#issue-2` before touching auth on Vercel.
 - Image storage is **S3-compatible** (`kind: "s3"`, `features/keystone/index.ts`),
-  bucket name `my_images`, used by `Todo.coverImage`, `TodoImage.image`, and
-  `GalleryItem.image`. There is no Vercel Blob storage in this project — if you
-  see a reference to one, it's leftover from `vp-web` and needs to be ported to
-  S3 or removed.
+  bucket name `my_images`, currently used only by `GalleryItem.image`. There is
+  no Vercel Blob storage in this project — if you see a reference to one, it's
+  leftover from `vp-web` and needs to be ported to S3 or removed. See
+  `README.md#image-management` for the two field patterns (single image on a
+  list vs. a many-images-per-record relationship) with code examples.
 
 ## Content model
 
 Two families of lists in [`features/keystone/models/`](features/keystone/models/),
 one file per list:
 
-- **App lists** (pre-existing): `User`, `Role`, `Todo`, `TodoImage`. Access
-  control is permission-flag-based — see `permissions` and `rules` in
-  [`features/keystone/access.ts`](features/keystone/access.ts).
+- **App lists** (pre-existing): `User`, `Role`. Access control is
+  permission-flag-based — see `permissions` and `rules` in
+  [`features/keystone/access.ts`](features/keystone/access.ts). (The starter
+  template shipped with `Todo`/`TodoImage` example lists; both were removed as
+  irrelevant to this project. If you find a stray reference to either outside
+  `NEXT_KEYSTONE_STARTER_GUIDE.md`/`DASHBOARD_DATA_FETCHING_ANALYSIS.md` — the
+  upstream template's own generic tutorial docs, left as-is — it's drift.)
 - **Landing content lists** (merged from `vp-web`): `ServiceType`, `Service`,
   `GalleryItem`, `ContactInfo` (singleton), `SocialLink`, `Review`. Public
   reads via `query: allowAll`; writes gated on the `canManageContent` role
@@ -75,9 +80,13 @@ one file per list:
   and [`features/dashboard/views/registry.ts`](features/dashboard/views/registry.ts),
   which **throws** for a field type with no registered view — this breaks the
   whole item page, not just one field. Check
-  `features/dashboard/views/registry.ts` before using a field type that isn't
-  already in `features/keystone/models/Todo.ts`. `calendarDay` has no view;
-  use `timestamp` instead (see `GalleryItem.takenOn`).
+  `features/dashboard/views/registry.ts` before using a field type not
+  currently used by any list — `bigInt`, `decimal`, `float`, `multiselect`,
+  and `document` all have registered views but, after the `Todo` example list
+  was removed, nothing in this project currently uses them; re-run
+  `npm run migrate:gen`'s view-order step after adding a field type back so
+  `VIEW_ORDER` picks it up. `calendarDay` has no view at all; use `timestamp`
+  instead (see `GalleryItem.takenOn`).
 - **Landing CSS must stay scoped.** `features/landing/landing.css` defines
   `--accent` and `--radius-{sm,md,lg,xl}` — names the dashboard's shadcn theme
   also uses. Everything in that file is scoped under `.vp-landing`
