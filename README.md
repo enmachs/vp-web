@@ -1,205 +1,163 @@
-# Viajeros Paraguaná — vp-web
+# Next.js + KeystoneJS Starter
 
-Bilingual (ES/EN) landing site for Viajeros Paraguaná, with a KeystoneJS admin for the content the client maintains.
+A modern full-stack application combining Next.js 15 with KeystoneJS 6, featuring admin dashboard implementation and sophisticated role-based permissions.
 
-- **Site** — Next.js 16 (App Router) + React 19, deployed on Vercel
-- **Admin** — KeystoneJS 8 + Prisma 7, deployed as a container
-- **Database** — PostgreSQL (local for development, Neon in production)
-- **Media** — Vercel Blob · **Email** — Resend
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjunaid33%2Fnext-keystone-starter%2F&stores=[{"type"%3A"postgres"}])
 
-## How it fits together
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/TK5wC1?referralCode=I_tWSs)
+
+## Architecture Overview
+
+This project features a **modern admin architecture** with:
+
+- **Backend**: KeystoneJS 6 providing GraphQL API, authentication, and database operations
+- **Frontend**: Custom Next.js admin dashboard with enhanced UI components
+- **Image Support**: S3-compatible image storage and management 
+
+## Tech Stack
+
+### Frontend
+- **Next.js 15** with App Router
+- **React 19** with TypeScript
+- **Radix UI** primitives for accessible components
+- **Tailwind CSS 4** for styling
+- **Remix Icons** (@remixicon/react) for icons
+- **SWR** for client-side data fetching
+- **TipTap** for rich text editing
+- **React Hook Form** for form management
+- **Zod** for schema validation
+
+### Backend
+- **KeystoneJS 6** for GraphQL API and admin interface
+- **Prisma ORM** for database operations
+- **GraphQL Yoga** for GraphQL server
+- **PostgreSQL** database
+- **S3-compatible storage** for image management
+
+### Key Features
+- **Role-based access control** with granular permissions
+- **Dynamic field controllers** with conditional behavior
+- **Rich text editing** with document fields
+- **Relationship management** with inline editing capabilities
+- **Image upload and management** with S3 storage
+- **Inline create/edit components** for seamless UX
+- **Advanced filtering system** for all field types
+- **Responsive design** with mobile support
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL database
+
+### Setup
+
+1. **Clone and install dependencies:**
+   ```bash
+   git clone https://github.com/junaid33/next-keystone-starter
+   cd next-keystone-starter
+   npm install
+   ```
+
+2. **Configure environment variables:**
+   ```bash
+   cp env.example .env
+   ```
+   
+   Update `.env` with your database configuration:
+   ```env
+   DATABASE_URL=postgresql://username:password@localhost:5432/database_name
+   SESSION_SECRET=your-super-secret-session-key-change-this-in-production
+   ```
+
+3. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+   This will:
+   - Build KeystoneJS schema
+   - Run database migrations
+   - Start Next.js development server with Turbopack
+
+4. **Access the application:**
+   - Frontend: [http://localhost:3000](http://localhost:3000)
+   - Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+   - GraphQL API: [http://localhost:3000/api/graphql](http://localhost:3000/api/graphql)
+
+## Development Commands
+
+- `npm run dev` - Build Keystone + migrate + start Next.js dev server
+- `npm run build` - Build Keystone + migrate + build Next.js for production
+- `npm run migrate:gen` - Generate and apply new database migrations
+- `npm run migrate` - Deploy existing migrations to database
+- `npm run lint` - Run ESLint
+
+## API Endpoints
+
+### GraphQL API
+- **Endpoint**: `/api/graphql`
+- **Features**: Full CRUD operations, relationships, authentication
+- **Playground**: Available in development mode
+
+## Data Models
+
+### Core Models
+- **User** - Authentication and user management
+- **Role** - Role-based access control
+- **Todo** - Example content model with relationships
+- **TodoImage** - Image management for Todo items with S3 storage
+
+### Permission System
+Sophisticated role-based permissions including:
+- `canAccessDashboard`, `canManagePeople`, `canManageRoles`
+- `canCreateTodos`, `canManageAllTodos`
+- `canSeeOtherPeople`, `canEditOtherPeople`
+
+## Project Structure
 
 ```
-                    ┌──────────────────────────┐
-   Neon Postgres ◄──┤ Next.js site (Vercel)    │  reads in-process via getContext()
-        ▲           │ imports config.base.ts   │  no HTTP hop to Keystone
-        │           └──────────────────────────┘
-        │           ┌──────────────────────────┐
-        └───────────┤ Keystone Admin UI        │  keystone start (Express + Next custom server)
-                    │ imports config.ts        │  content edits + image uploads
-                    └──────────────────────────┘
-                                 │
-                                 ▼
-                          Vercel Blob (images)
+├── app/                    # Next.js App Router
+│   ├── api/
+│   │   └── graphql.ts     # GraphQL API endpoint
+│   └── dashboard/         # Admin dashboard pages
+├── features/
+│   ├── keystone/          # Backend configuration
+│   │   ├── models/        # Keystone list definitions
+│   │   ├── access.ts      # Permission logic
+│   │   └── mutations/     # Custom GraphQL mutations
+│   └── dashboard/         # Admin interface implementation
+│       ├── actions/       # Server actions
+│       ├── components/    # Reusable UI components
+│       ├── screens/       # Page-level components
+│       └── views/         # Field type implementations
+├── keystone.ts            # KeystoneJS configuration
+└── schema.prisma          # Database schema
 ```
 
-The site reads content **in-process through Prisma** — there is no GraphQL call between the two. They are separate deploy targets because Keystone's Admin UI runs its own Express + Next custom server, which Vercel cannot host.
-
-## Getting started
-
-**Prerequisites:** Node.js 22+, PostgreSQL 16+, and the Vercel CLI (`npm i -g vercel`) only if you're deploying.
-
-### 1. Local database
-
-The project uses Postgres locally — the same engine as production, so migrations behave identically. On macOS:
-
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
-
-Create the application database and a shadow database (Prisma needs the second one to author migrations):
-
-```bash
-createdb vp_web_dev
-createdb vp_web_shadow
-```
-
-
-
-### 2. Environment
-
-```bash
-cp .env.example .env      # infrastructure — see below
-```
-
-Set the database URLs in `.env`. Locally there is no connection pooler, so both point at the same database (replace `youruser` with your system username — a stock Homebrew Postgres uses trust auth, so no password):
-
-```bash
-DATABASE_URL=postgresql://youruser@127.0.0.1:5432/vp_web_dev
-DIRECT_DATABASE_URL=postgresql://youruser@127.0.0.1:5432/vp_web_dev
-SHADOW_DATABASE_URL=postgresql://youruser@127.0.0.1:5432/vp_web_shadow
-SESSION_SECRET=$(openssl rand -base64 32)
-SEED_ADMIN_EMAIL=you@example.com
-SEED_ADMIN_PASSWORD=pick-something
-```
-
-> **Only Next.js reads** `.env` **automatically.** The Keystone and Prisma CLIs do not, so `keystone/db.ts` and `prisma.config.ts` each load it explicitly via `process.loadEnvFile`. If you move that code, both CLIs break with `DATABASE_URL is not set`.
-
-
-
-### 3. Create the schema and sign in
-
-```bash
-npm install                # postinstall regenerates schema + Prisma client
-npm run db:migrate         # create the tables
-npm run db:seed            # seed the ServiceType taxonomy (idempotent)
-```
-
-Then run both servers, in separate terminals:
-
-```bash
-npm run dev        # site   → http://localhost:3000
-npm run dev:cms    # admin  → http://localhost:3001
-```
-
-The admin user is created on the Keystone server's **first boot** from `SEED_ADMIN_`* — Keystone 8 has no first-user bootstrap page, so without those variables you get a sign-in screen you cannot get past. Once you can sign in, **remove both variables** and change the password.
-
-To start over: `npm run db:reset` drops, recreates and re-migrates the database.
-
-
-
-### What does not work locally ⚠️
-
-Gallery **image uploads** need a Vercel Blob token. Without `BLOB_READ_WRITE_TOKEN` and `BLOB_BASE_URL`, uploads fail; everything else — all lists, relationships, the site's read path — works fully offline.
-
-
-
-### Environment variables
-
-`.env.example` documents all of them. The split matters:
-
-- `.env` — infrastructure (database, session secret, Blob). Read by Next.js, and loaded explicitly by the Keystone and Prisma CLIs.
-- `.env.local` — Resend keys. Next.js only.
-
-In production the two database URLs diverge and are **not** interchangeable: `DATABASE_URL` is Neon's **pooled** connection for the serverless site, `DIRECT_DATABASE_URL` is the **unpooled** one for the admin container and every `prisma migrate` command (DDL over a transaction pooler is unreliable). `DIRECT_DATABASE_URL` is deliberately never set on Vercel.
-
-
-
-## Scripts
-
-
-| Script                        | What it does                                                         |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `npm run dev`                 | Site on :3000                                                        |
-| `npm run dev:cms`             | Admin UI on :3001 (pushes schema changes straight to the DB)         |
-| `npm run build`               | `prisma generate && next build` — what Vercel runs                   |
-| `npm run build:cms`           | Full Keystone build including the Admin UI — what the container runs |
-| `npm run start` / `start:cms` | Production starts                                                    |
-| `npm run db:migrate`          | `prisma migrate dev` — author a migration                            |
-| `npm run db:deploy`           | `prisma migrate deploy` — apply migrations                           |
-| `npm run db:seed`             | Seed the ServiceType taxonomy (idempotent)                           |
-| `npm run db:reset`            | Drop, recreate and re-migrate the database                           |
-| `npm run db:studio`           | Prisma Studio                                                        |
-| `npm test`                    | Node test runner via tsx                                             |
-| `npm run lint`                | ESLint                                                               |
-
-
-
-
-## Content model
-
-Defined in `keystone/schema.ts`. Copy is bilingual via sibling `…Es` / `…En` fields on a single row, because the site's language toggle is client-side.
-
-
-| List          | Holds                                                                                                           |
-| ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ServiceType` | The one taxonomy — `trips` / `pkg` / `clients`. `kind` separates a sellable service from a gallery-only bucket. |
-| `Service`     | The service cards, related to a `ServiceType`.                                                                  |
-| `GalleryItem` | Gallery photos on Vercel Blob, categorised by `ServiceType`.                                                    |
-| `ContactInfo` | **Singleton.** Email, phone, WhatsApp, address, hours — one of each.                                            |
-| `SocialLink`  | Social profiles and their URLs.                                                                                 |
-| `Review`      | Testimonials.                                                                                                   |
-| `User`        | Admin logins. Never publicly queryable.                                                                         |
-
-
-Contact values are stored raw (`+584140000000`) so `tel:` / `mailto:` / `wa.me` links can be derived in code rather than authored by an editor.
-
-### Changing the schema
-
-`schema.prisma` and `schema.graphql` are **generated** — never edit them by hand.
-
-```bash
-# 1. edit keystone/schema.ts
-npx keystone build --no-ui                  # regenerate schema + types
-npm run db:migrate -- --name describe_it    # author the migration
-git add schema.prisma schema.graphql migrations/
-```
-
-Committing `schema.prisma` is required: `postinstall` runs `keystone postinstall`, which fails the build if the committed schema has drifted from the config. That guard is deliberate — it stops a schema change from reaching production without its migration.
-
-> **Author migrations locally, never against Neon.** `prisma migrate dev` needs a shadow database it can create and drop, which Neon may refuse — that is what the local `vp_web_shadow` database is for. Author and commit migrations against local Postgres; production only ever runs `db:deploy`.
-
-
-
-## Deploying
-
-**Order matters.** Deploy the admin container **first** — it runs the migrations — then Vercel. Reversed, Vercel prerenders against columns that don't exist yet and the build fails.
-
-**Site (Vercel).** Standard `npm run build`. Set `DATABASE_URL` (pooled), `BLOB_BASE_URL`, `SESSION_SECRET`, and the existing Resend vars. Do **not** set `DIRECT_DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, or `SEED_ADMIN_`*.
-
-**Admin (Railway / Render / Fly).** Build from the `Dockerfile`; it applies migrations then starts Keystone. Needs `DATABASE_URL`, `DIRECT_DATABASE_URL`, `SESSION_SECRET`, `BLOB_READ_WRITE_TOKEN`, `BLOB_BASE_URL`. Allow ≥2 GB build memory — `keystone build` runs a full Next build of the Admin UI.
-
-Content edits are **not** instant: `app/page.tsx` uses time-based revalidation, so changes appear after the revalidation window rather than immediately.
-
-
-
-## Project layout
-
-```
-app/                    Next.js routes. api/quote → Resend; api/ks-health → temporary probe
-components/             UI. ClientPage.tsx is the 'use client' boundary; all sections sit under it
-lib/dict.ts             Bilingual site copy (still static — not yet in Keystone)
-lib/data.ts             Legacy static content, superseded list by list as components migrate
-lib/keystone.ts         getKeystoneContext() — the site's read path
-keystone.ts             Keystone CLI entrypoint → keystone/config.ts
-keystone/
-  config.base.ts        Auth-free config. What the Next.js app imports
-  config.ts             withAuth + session + Admin UI + seeding. CLI and container only
-  schema.ts             The content model
-  access.ts             Access control factories
-  db.ts                 Prisma 7 driver-adapter setup
-  storage/vercel-blob.ts  Image storage strategy
-schema.prisma           GENERATED — do not edit
-generated/              GENERATED — gitignored
-```
-
-
-
-## Outstanding work
-
-`TODO.md` tracks what is left, each item written to be self-contained enough to hand to someone (or something) with no prior context. Start there rather than reverse-engineering intent from the code.
-
-## Notes for contributors
-
-`AGENTS.md` documents the sharp edges — most importantly that this is **Keystone 8**, while essentially all published Keystone documentation describes v6. `db.url`, `config.storage`, `initFirstItem`, and `withKeystone`/embedded mode no longer exist. Read it before touching anything under `keystone/`.
+## Development Notes
+
+- **GraphQL endpoint** available at `/api/graphql`
+- **Field implementations** follow KeystoneJS controller patterns
+- **Permission checks** are integrated throughout the UI layer
+- **Server actions** used for data mutations in dashboard components
+- **Inline editing** components provide seamless UX for relationship management
+- **Image uploads** configured for S3-compatible storage
+- **Advanced filtering** supports all field types including documents, JSON, and images
+
+## Deployment
+
+The application can be deployed to any platform supporting Node.js and PostgreSQL:
+
+1. Set up PostgreSQL database
+2. Configure environment variables
+3. Run `npm run build`
+4. Run `npm start`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request

@@ -1,4 +1,4 @@
-// Entrypoint for the Keystone CLI (`keystone dev` / `build` / `start`).
-// The Next.js app deliberately imports `keystone/config.base.ts` instead, which
-// omits auth and the Admin UI.
-export { default } from './keystone/config';
+// keystone.ts - Main entry point for Keystone
+import config from './features/keystone';
+
+export default config;

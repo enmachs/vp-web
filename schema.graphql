@@ -6,7 +6,12 @@ type User {
   name: String
   email: String
   password: PasswordState
-  createdAt: DateTime
+  role: Role
+  tasks(where: TodoWhereInput! = {}, orderBy: [TodoOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TodoWhereUniqueInput): [Todo!]
+  tasksCount(where: TodoWhereInput! = {}): Int
+  passwordResetToken: PasswordState
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
 }
 
 type PasswordState {
@@ -17,7 +22,6 @@ scalar DateTime @specifiedBy(url: "https://datatracker.ietf.org/doc/html/rfc3339
 
 input UserWhereUniqueInput {
   id: ID
-  email: String
 }
 
 input UserWhereInput {
@@ -26,8 +30,11 @@ input UserWhereInput {
   NOT: [UserWhereInput!]
   id: IDFilter
   name: StringFilter
-  email: StringFilter
-  createdAt: DateTimeNullableFilter
+  role: RoleWhereInput
+  tasks: TodoManyRelationFilter
+  passwordResetToken: PasswordFilter
+  passwordResetIssuedAt: DateTimeNullableFilter
+  passwordResetRedeemedAt: DateTimeNullableFilter
 }
 
 input IDFilter {
@@ -75,6 +82,16 @@ input NestedStringFilter {
   not: NestedStringFilter
 }
 
+input TodoManyRelationFilter {
+  every: TodoWhereInput
+  some: TodoWhereInput
+  none: TodoWhereInput
+}
+
+input PasswordFilter {
+  isSet: Boolean!
+}
+
 input DateTimeNullableFilter {
   equals: DateTime
   in: [DateTime!]
@@ -89,8 +106,8 @@ input DateTimeNullableFilter {
 input UserOrderByInput {
   id: OrderDirection
   name: OrderDirection
-  email: OrderDirection
-  createdAt: OrderDirection
+  passwordResetIssuedAt: OrderDirection
+  passwordResetRedeemedAt: OrderDirection
 }
 
 enum OrderDirection {
@@ -102,7 +119,24 @@ input UserUpdateInput {
   name: String
   email: String
   password: String
-  createdAt: DateTime
+  role: RoleRelateToOneForUpdateInput
+  tasks: TodoRelateToManyForUpdateInput
+  passwordResetToken: String
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
+}
+
+input RoleRelateToOneForUpdateInput {
+  create: RoleCreateInput
+  connect: RoleWhereUniqueInput
+  disconnect: Boolean
+}
+
+input TodoRelateToManyForUpdateInput {
+  disconnect: [TodoWhereUniqueInput!]
+  set: [TodoWhereUniqueInput!]
+  create: [TodoCreateInput!]
+  connect: [TodoWhereUniqueInput!]
 }
 
 input UserUpdateArgs {
@@ -114,7 +148,394 @@ input UserCreateInput {
   name: String
   email: String
   password: String
-  createdAt: DateTime
+  role: RoleRelateToOneForCreateInput
+  tasks: TodoRelateToManyForCreateInput
+  passwordResetToken: String
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
+}
+
+input RoleRelateToOneForCreateInput {
+  create: RoleCreateInput
+  connect: RoleWhereUniqueInput
+}
+
+input TodoRelateToManyForCreateInput {
+  create: [TodoCreateInput!]
+  connect: [TodoWhereUniqueInput!]
+}
+
+type Role {
+  id: ID!
+  name: String
+  canCreateTodos: Boolean
+  canManageAllTodos: Boolean
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo(where: UserWhereInput! = {}, orderBy: [UserOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: UserWhereUniqueInput): [User!]
+  assignedToCount(where: UserWhereInput! = {}): Int
+}
+
+input RoleWhereUniqueInput {
+  id: ID
+}
+
+input RoleWhereInput {
+  AND: [RoleWhereInput!]
+  OR: [RoleWhereInput!]
+  NOT: [RoleWhereInput!]
+  id: IDFilter
+  name: StringFilter
+  canCreateTodos: BooleanFilter
+  canManageAllTodos: BooleanFilter
+  canSeeOtherPeople: BooleanFilter
+  canEditOtherPeople: BooleanFilter
+  canManagePeople: BooleanFilter
+  canManageRoles: BooleanFilter
+  canAccessDashboard: BooleanFilter
+  canManageContent: BooleanFilter
+  assignedTo: UserManyRelationFilter
+}
+
+input BooleanFilter {
+  equals: Boolean
+  not: BooleanFilter
+}
+
+input UserManyRelationFilter {
+  every: UserWhereInput
+  some: UserWhereInput
+  none: UserWhereInput
+}
+
+input RoleOrderByInput {
+  id: OrderDirection
+  name: OrderDirection
+  canCreateTodos: OrderDirection
+  canManageAllTodos: OrderDirection
+  canSeeOtherPeople: OrderDirection
+  canEditOtherPeople: OrderDirection
+  canManagePeople: OrderDirection
+  canManageRoles: OrderDirection
+  canAccessDashboard: OrderDirection
+  canManageContent: OrderDirection
+}
+
+input RoleUpdateInput {
+  name: String
+  canCreateTodos: Boolean
+  canManageAllTodos: Boolean
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo: UserRelateToManyForUpdateInput
+}
+
+input UserRelateToManyForUpdateInput {
+  disconnect: [UserWhereUniqueInput!]
+  set: [UserWhereUniqueInput!]
+  create: [UserCreateInput!]
+  connect: [UserWhereUniqueInput!]
+}
+
+input RoleUpdateArgs {
+  where: RoleWhereUniqueInput!
+  data: RoleUpdateInput!
+}
+
+input RoleCreateInput {
+  name: String
+  canCreateTodos: Boolean
+  canManageAllTodos: Boolean
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo: UserRelateToManyForCreateInput
+}
+
+input UserRelateToManyForCreateInput {
+  create: [UserCreateInput!]
+  connect: [UserWhereUniqueInput!]
+}
+
+type Todo {
+  id: ID!
+  label: String
+  description: Todo_description_Document
+  isComplete: Boolean
+  status: String
+  priority: Int
+  tags: [String!]
+  dueDate: DateTime
+  weight: Float
+  budget: Decimal
+  isPrivate: Boolean
+  largeNumber: BigInt
+  metadata: JSON
+  secretNote: PasswordState
+  coverImage: ImageFieldOutput
+  todoImages(where: TodoImageWhereInput! = {}, orderBy: [TodoImageOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TodoImageWhereUniqueInput): [TodoImage!]
+  todoImagesCount(where: TodoImageWhereInput! = {}): Int
+  assignedTo: User
+}
+
+type Todo_description_Document {
+  document(hydrateRelationships: Boolean! = false): JSON!
+}
+
+scalar Decimal
+
+scalar BigInt
+
+type ImageFieldOutput {
+  id: ID!
+  filesize: Int!
+  width: Int!
+  height: Int!
+  extension: ImageExtension!
+  url: String!
+}
+
+enum ImageExtension {
+  jpg
+  png
+  webp
+  gif
+}
+
+input TodoWhereUniqueInput {
+  id: ID
+}
+
+input TodoWhereInput {
+  AND: [TodoWhereInput!]
+  OR: [TodoWhereInput!]
+  NOT: [TodoWhereInput!]
+  id: IDFilter
+  label: StringFilter
+  isComplete: BooleanFilter
+  status: StringNullableFilter
+  priority: IntNullableFilter
+  dueDate: DateTimeNullableFilter
+  weight: FloatNullableFilter
+  budget: DecimalNullableFilter
+  isPrivate: BooleanFilter
+  largeNumber: BigIntNullableFilter
+  secretNote: PasswordFilter
+  todoImages: TodoImageManyRelationFilter
+  assignedTo: UserWhereInput
+}
+
+input StringNullableFilter {
+  equals: String
+  in: [String!]
+  notIn: [String!]
+  lt: String
+  lte: String
+  gt: String
+  gte: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  mode: QueryMode
+  not: StringNullableFilter
+}
+
+input IntNullableFilter {
+  equals: Int
+  in: [Int!]
+  notIn: [Int!]
+  lt: Int
+  lte: Int
+  gt: Int
+  gte: Int
+  not: IntNullableFilter
+}
+
+input FloatNullableFilter {
+  equals: Float
+  in: [Float!]
+  notIn: [Float!]
+  lt: Float
+  lte: Float
+  gt: Float
+  gte: Float
+  not: FloatNullableFilter
+}
+
+input DecimalNullableFilter {
+  equals: Decimal
+  in: [Decimal!]
+  notIn: [Decimal!]
+  lt: Decimal
+  lte: Decimal
+  gt: Decimal
+  gte: Decimal
+  not: DecimalNullableFilter
+}
+
+input BigIntNullableFilter {
+  equals: BigInt
+  in: [BigInt!]
+  notIn: [BigInt!]
+  lt: BigInt
+  lte: BigInt
+  gt: BigInt
+  gte: BigInt
+  not: BigIntNullableFilter
+}
+
+input TodoImageManyRelationFilter {
+  every: TodoImageWhereInput
+  some: TodoImageWhereInput
+  none: TodoImageWhereInput
+}
+
+input TodoOrderByInput {
+  id: OrderDirection
+  label: OrderDirection
+  isComplete: OrderDirection
+  status: OrderDirection
+  priority: OrderDirection
+  dueDate: OrderDirection
+  weight: OrderDirection
+  budget: OrderDirection
+  isPrivate: OrderDirection
+  largeNumber: OrderDirection
+}
+
+input TodoUpdateInput {
+  label: String
+  description: JSON
+  isComplete: Boolean
+  status: String
+  priority: Int
+  tags: [String!]
+  dueDate: DateTime
+  weight: Float
+  budget: Decimal
+  isPrivate: Boolean
+  largeNumber: BigInt
+  metadata: JSON
+  secretNote: String
+  coverImage: ImageFieldInput
+  todoImages: TodoImageRelateToManyForUpdateInput
+  assignedTo: UserRelateToOneForUpdateInput
+}
+
+input ImageFieldInput {
+  upload: Upload!
+}
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
+
+input TodoImageRelateToManyForUpdateInput {
+  disconnect: [TodoImageWhereUniqueInput!]
+  set: [TodoImageWhereUniqueInput!]
+  create: [TodoImageCreateInput!]
+  connect: [TodoImageWhereUniqueInput!]
+}
+
+input UserRelateToOneForUpdateInput {
+  create: UserCreateInput
+  connect: UserWhereUniqueInput
+  disconnect: Boolean
+}
+
+input TodoUpdateArgs {
+  where: TodoWhereUniqueInput!
+  data: TodoUpdateInput!
+}
+
+input TodoCreateInput {
+  label: String
+  description: JSON
+  isComplete: Boolean
+  status: String
+  priority: Int
+  tags: [String!]
+  dueDate: DateTime
+  weight: Float
+  budget: Decimal
+  isPrivate: Boolean
+  largeNumber: BigInt
+  metadata: JSON
+  secretNote: String
+  coverImage: ImageFieldInput
+  todoImages: TodoImageRelateToManyForCreateInput
+  assignedTo: UserRelateToOneForCreateInput
+}
+
+input TodoImageRelateToManyForCreateInput {
+  create: [TodoImageCreateInput!]
+  connect: [TodoImageWhereUniqueInput!]
+}
+
+input UserRelateToOneForCreateInput {
+  create: UserCreateInput
+  connect: UserWhereUniqueInput
+}
+
+type TodoImage {
+  id: ID!
+  image: ImageFieldOutput
+  imagePath: String
+  altText: String
+  todos(where: TodoWhereInput! = {}, orderBy: [TodoOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TodoWhereUniqueInput): [Todo!]
+  todosCount(where: TodoWhereInput! = {}): Int
+  metadata: JSON
+}
+
+input TodoImageWhereUniqueInput {
+  id: ID
+}
+
+input TodoImageWhereInput {
+  AND: [TodoImageWhereInput!]
+  OR: [TodoImageWhereInput!]
+  NOT: [TodoImageWhereInput!]
+  id: IDFilter
+  imagePath: StringFilter
+  altText: StringFilter
+  todos: TodoManyRelationFilter
+}
+
+input TodoImageOrderByInput {
+  id: OrderDirection
+  imagePath: OrderDirection
+  altText: OrderDirection
+}
+
+input TodoImageUpdateInput {
+  image: ImageFieldInput
+  imagePath: String
+  altText: String
+  todos: TodoRelateToManyForUpdateInput
+  metadata: JSON
+}
+
+input TodoImageUpdateArgs {
+  where: TodoImageWhereUniqueInput!
+  data: TodoImageUpdateInput!
+}
+
+input TodoImageCreateInput {
+  image: ImageFieldInput
+  imagePath: String
+  altText: String
+  todos: TodoRelateToManyForCreateInput
+  metadata: JSON
 }
 
 type ServiceType {
@@ -188,11 +609,6 @@ input IntFilter {
   not: IntFilter
 }
 
-input BooleanFilter {
-  equals: Boolean
-  not: BooleanFilter
-}
-
 input ServiceTypeOrderByInput {
   id: OrderDirection
   key: OrderDirection
@@ -250,13 +666,11 @@ input ServiceTypeCreateInput {
 input ServiceRelateToManyForCreateInput {
   create: [ServiceCreateInput!]
   connect: [ServiceWhereUniqueInput!]
-  set: [ServiceWhereUniqueInput!]
 }
 
 input GalleryItemRelateToManyForCreateInput {
   create: [GalleryItemCreateInput!]
   connect: [GalleryItemWhereUniqueInput!]
-  set: [GalleryItemWhereUniqueInput!]
 }
 
 type Service {
@@ -356,31 +770,13 @@ type GalleryItem {
   image: ImageFieldOutput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceType
   sortOrder: Int
   isPublished: Boolean
   createdAt: DateTime
 }
-
-type ImageFieldOutput {
-  id: ID!
-  url: String!
-  extension: ImageExtension!
-  filesize: Int!
-  width: Int!
-  height: Int!
-}
-
-enum ImageExtension {
-  jpg
-  png
-  webp
-  gif
-}
-
-scalar CalendarDay @specifiedBy(url: "https://datatracker.ietf.org/doc/html/rfc3339#section-5.6")
 
 input GalleryItemWhereUniqueInput {
   id: ID
@@ -393,23 +789,12 @@ input GalleryItemWhereInput {
   id: IDFilter
   labelEs: StringFilter
   labelEn: StringFilter
-  takenOn: CalendarDayNullableFilter
+  takenOn: DateTimeNullableFilter
   placeholderColor: StringFilter
   serviceType: ServiceTypeWhereInput
   sortOrder: IntFilter
   isPublished: BooleanFilter
   createdAt: DateTimeNullableFilter
-}
-
-input CalendarDayNullableFilter {
-  equals: CalendarDay
-  in: [CalendarDay!]
-  notIn: [CalendarDay!]
-  lt: CalendarDay
-  lte: CalendarDay
-  gt: CalendarDay
-  gte: CalendarDay
-  not: CalendarDayNullableFilter
 }
 
 input GalleryItemOrderByInput {
@@ -427,20 +812,13 @@ input GalleryItemUpdateInput {
   image: ImageFieldInput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceTypeRelateToOneForUpdateInput
   sortOrder: Int
   isPublished: Boolean
   createdAt: DateTime
 }
-
-input ImageFieldInput {
-  upload: Upload!
-}
-
-"""The `Upload` scalar type represents a file upload."""
-scalar Upload
 
 input GalleryItemUpdateArgs {
   where: GalleryItemWhereUniqueInput!
@@ -451,7 +829,7 @@ input GalleryItemCreateInput {
   image: ImageFieldInput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceTypeRelateToOneForCreateInput
   sortOrder: Int
@@ -706,6 +1084,24 @@ type Mutation {
   updateUsers(data: [UserUpdateArgs!]!): [User]
   deleteUser(where: UserWhereUniqueInput!): User
   deleteUsers(where: [UserWhereUniqueInput!]!): [User]
+  createRole(data: RoleCreateInput!): Role
+  createRoles(data: [RoleCreateInput!]!): [Role]
+  updateRole(where: RoleWhereUniqueInput!, data: RoleUpdateInput!): Role
+  updateRoles(data: [RoleUpdateArgs!]!): [Role]
+  deleteRole(where: RoleWhereUniqueInput!): Role
+  deleteRoles(where: [RoleWhereUniqueInput!]!): [Role]
+  createTodo(data: TodoCreateInput!): Todo
+  createTodos(data: [TodoCreateInput!]!): [Todo]
+  updateTodo(where: TodoWhereUniqueInput!, data: TodoUpdateInput!): Todo
+  updateTodos(data: [TodoUpdateArgs!]!): [Todo]
+  deleteTodo(where: TodoWhereUniqueInput!): Todo
+  deleteTodos(where: [TodoWhereUniqueInput!]!): [Todo]
+  createTodoImage(data: TodoImageCreateInput!): TodoImage
+  createTodoImages(data: [TodoImageCreateInput!]!): [TodoImage]
+  updateTodoImage(where: TodoImageWhereUniqueInput!, data: TodoImageUpdateInput!): TodoImage
+  updateTodoImages(data: [TodoImageUpdateArgs!]!): [TodoImage]
+  deleteTodoImage(where: TodoImageWhereUniqueInput!): TodoImage
+  deleteTodoImages(where: [TodoImageWhereUniqueInput!]!): [TodoImage]
   createServiceType(data: ServiceTypeCreateInput!): ServiceType
   createServiceTypes(data: [ServiceTypeCreateInput!]!): [ServiceType]
   updateServiceType(where: ServiceTypeWhereUniqueInput!, data: ServiceTypeUpdateInput!): ServiceType
@@ -744,6 +1140,9 @@ type Mutation {
   deleteReviews(where: [ReviewWhereUniqueInput!]!): [Review]
   endSession: Boolean!
   authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
+  createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
+  sendUserPasswordResetLink(email: String!): Boolean!
+  redeemUserPasswordResetToken(email: String!, token: String!, password: String!): RedeemUserPasswordResetTokenResult
 }
 
 union UserAuthenticationWithPasswordResult = UserAuthenticationWithPasswordSuccess | UserAuthenticationWithPasswordFailure
@@ -757,10 +1156,36 @@ type UserAuthenticationWithPasswordFailure {
   message: String!
 }
 
+input CreateInitialUserInput {
+  name: String
+  email: String
+  password: String
+}
+
+type RedeemUserPasswordResetTokenResult {
+  code: PasswordResetRedemptionErrorCode!
+  message: String!
+}
+
+enum PasswordResetRedemptionErrorCode {
+  FAILURE
+  TOKEN_EXPIRED
+  TOKEN_REDEEMED
+}
+
 type Query {
   user(where: UserWhereUniqueInput!): User
   users(where: UserWhereInput! = {}, orderBy: [UserOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: UserWhereUniqueInput): [User!]
   usersCount(where: UserWhereInput! = {}): Int
+  role(where: RoleWhereUniqueInput!): Role
+  roles(where: RoleWhereInput! = {}, orderBy: [RoleOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: RoleWhereUniqueInput): [Role!]
+  rolesCount(where: RoleWhereInput! = {}): Int
+  todo(where: TodoWhereUniqueInput!): Todo
+  todos(where: TodoWhereInput! = {}, orderBy: [TodoOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TodoWhereUniqueInput): [Todo!]
+  todosCount(where: TodoWhereInput! = {}): Int
+  todoImage(where: TodoImageWhereUniqueInput!): TodoImage
+  todoImages(where: TodoImageWhereInput! = {}, orderBy: [TodoImageOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TodoImageWhereUniqueInput): [TodoImage!]
+  todoImagesCount(where: TodoImageWhereInput! = {}): Int
   serviceType(where: ServiceTypeWhereUniqueInput!): ServiceType
   serviceTypes(where: ServiceTypeWhereInput! = {}, orderBy: [ServiceTypeOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ServiceTypeWhereUniqueInput): [ServiceType!]
   serviceTypesCount(where: ServiceTypeWhereInput! = {}): Int
@@ -780,7 +1205,16 @@ type Query {
   reviews(where: ReviewWhereInput! = {}, orderBy: [ReviewOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ReviewWhereUniqueInput): [Review!]
   reviewsCount(where: ReviewWhereInput! = {}): Int
   keystone: KeystoneMeta!
-  authenticatedItem: User
+  authenticatedItem: AuthenticatedItem
+  validateUserPasswordResetToken(email: String!, token: String!): ValidateUserPasswordResetTokenResult
+  redirectToInit: Boolean
+}
+
+union AuthenticatedItem = User
+
+type ValidateUserPasswordResetTokenResult {
+  code: PasswordResetRedemptionErrorCode!
+  message: String!
 }
 
 type KeystoneMeta {
@@ -789,34 +1223,34 @@ type KeystoneMeta {
 
 type KeystoneAdminMeta {
   lists: [KeystoneAdminUIListMeta!]!
-  list(key: String!, itemId: ID): KeystoneAdminUIListMeta
+  list(key: String!): KeystoneAdminUIListMeta
 }
 
 type KeystoneAdminUIListMeta {
   key: String!
+  path: String!
   label: String!
   singular: String!
   plural: String!
-  path: String!
+  description: String
+  pageSize: Int!
   labelField: String!
   fields: [KeystoneAdminUIFieldMeta!]!
   groups: [KeystoneAdminUIFieldGroupMeta!]!
-  actions: [KeystoneAdminUIActionMeta!]!
   graphql: KeystoneAdminUIGraphQL!
-  pageSize: Int!
   initialColumns: [String!]!
   initialSearchFields: [String!]!
   initialSort: KeystoneAdminUISort
-  initialFilter: JSON
-  hiddenFilter: JSON
   isSingleton: Boolean!
-  hideNavigation: Boolean!
   hideCreate: Boolean!
   hideDelete: Boolean!
+  isHidden: Boolean!
+  itemQueryName: String!
+  listQueryName: String!
 }
 
 type KeystoneAdminUIFieldMeta {
-  key: String!
+  path: String!
   label: String!
   description: String
   isOrderable: Boolean!
@@ -826,8 +1260,8 @@ type KeystoneAdminUIFieldMeta {
   viewsIndex: Int!
   customViewsIndex: Int
   createView: KeystoneAdminUIFieldMetaCreateView!
-  itemView: KeystoneAdminUIFieldMetaItemView
   listView: KeystoneAdminUIFieldMetaListView!
+  itemView(id: ID): KeystoneAdminUIFieldMetaItemView
   search: QueryMode
 }
 
@@ -838,19 +1272,12 @@ enum KeystoneAdminUIFieldMetaIsNonNull {
 }
 
 type KeystoneAdminUIFieldMetaCreateView {
-  fieldMode: JSON!
-  isRequired: JSON!
+  fieldMode: KeystoneAdminUIFieldMetaCreateViewFieldMode!
 }
 
-type KeystoneAdminUIFieldMetaItemView {
-  fieldMode: JSON!
-  fieldPosition: KeystoneAdminUIFieldMetaItemViewFieldPosition!
-  isRequired: JSON!
-}
-
-enum KeystoneAdminUIFieldMetaItemViewFieldPosition {
-  form
-  sidebar
+enum KeystoneAdminUIFieldMetaCreateViewFieldMode {
+  edit
+  hidden
 }
 
 type KeystoneAdminUIFieldMetaListView {
@@ -862,66 +1289,26 @@ enum KeystoneAdminUIFieldMetaListViewFieldMode {
   hidden
 }
 
+type KeystoneAdminUIFieldMetaItemView {
+  fieldMode: KeystoneAdminUIFieldMetaItemViewFieldMode
+  fieldPosition: KeystoneAdminUIFieldMetaItemViewFieldPosition
+}
+
+enum KeystoneAdminUIFieldMetaItemViewFieldMode {
+  edit
+  read
+  hidden
+}
+
+enum KeystoneAdminUIFieldMetaItemViewFieldPosition {
+  form
+  sidebar
+}
+
 type KeystoneAdminUIFieldGroupMeta {
   label: String!
   description: String
   fields: [KeystoneAdminUIFieldMeta!]!
-}
-
-type KeystoneAdminUIActionMeta {
-  key: String!
-  label: String!
-  icon: String
-  messages: KeystoneAdminUIActionMetaMessages!
-  graphql: KeystoneAdminUIActionMetaGraphQL
-  itemView: KeystoneAdminUIActionMetaItemView
-  listView: KeystoneAdminUIActionMetaListView!
-}
-
-type KeystoneAdminUIActionMetaMessages {
-  promptTitle: String!
-  promptTitleMany: String
-  prompt: String!
-  promptMany: String
-  promptConfirmLabel: String!
-  promptConfirmLabelMany: String
-  fail: String!
-  failMany: String
-  success: String!
-  successMany: String
-}
-
-type KeystoneAdminUIActionMetaGraphQL {
-  arguments: [KeystoneAdminUIActionMetaGraphQLArgument!]!
-  names: KeystoneAdminUIActionMetaGraphQLNames!
-}
-
-type KeystoneAdminUIActionMetaGraphQLArgument {
-  name: String!
-  type: String!
-  source: JSON
-}
-
-type KeystoneAdminUIActionMetaGraphQLNames {
-  one: String!
-  many: String
-}
-
-type KeystoneAdminUIActionMetaItemView {
-  actionMode: JSON!
-  navigation: KeystoneAdminUIActionMetaItemViewNavigation!
-  hidePrompt: Boolean!
-  hideToast: Boolean!
-}
-
-enum KeystoneAdminUIActionMetaItemViewNavigation {
-  follow
-  refetch
-  return
-}
-
-type KeystoneAdminUIActionMetaListView {
-  actionMode: JSON!
 }
 
 type KeystoneAdminUIGraphQL {
