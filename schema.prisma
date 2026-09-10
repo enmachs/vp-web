@@ -2,24 +2,43 @@
 // Modify your Keystone config when you want to change this.
 
 datasource postgresql {
-  provider = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider          = "postgresql"
 }
 
 generator client {
-  provider = "prisma-client"
-  output   = "./generated/prisma"
+  provider = "prisma-client-js"
 }
 
 model User {
-  id        String    @id @default(uuid()) @postgresql.Uuid
-  name      String    @default("")
-  email     String    @unique @default("")
-  password  String
-  createdAt DateTime? @default(now())
+  id                      String    @id @default(cuid())
+  name                    String    @default("")
+  email                   String    @unique @default("")
+  password                String
+  role                    Role?     @relation("User_role", fields: [roleId], references: [id])
+  roleId                  String?   @map("role")
+  passwordResetToken      String?
+  passwordResetIssuedAt   DateTime?
+  passwordResetRedeemedAt DateTime?
+
+  @@index([roleId])
+}
+
+model Role {
+  id                 String  @id @default(cuid())
+  name               String  @default("")
+  canSeeOtherPeople  Boolean @default(false)
+  canEditOtherPeople Boolean @default(false)
+  canManagePeople    Boolean @default(false)
+  canManageRoles     Boolean @default(false)
+  canAccessDashboard Boolean @default(false)
+  canManageContent   Boolean @default(false)
+  assignedTo         User[]  @relation("User_role")
 }
 
 model ServiceType {
-  id           String              @id @default(uuid()) @postgresql.Uuid
+  id           String              @id @default(cuid())
   key          String              @unique @default("")
   kind         ServiceTypeKindType @default(service)
   nameEs       String              @default("")
@@ -32,7 +51,7 @@ model ServiceType {
 }
 
 model Service {
-  id            String       @id @default(uuid()) @postgresql.Uuid
+  id            String       @id @default(cuid())
   slug          String       @unique @default("")
   titleEs       String       @default("")
   titleEn       String       @default("")
@@ -41,7 +60,7 @@ model Service {
   tagsEs        Json?        @default("[]")
   tagsEn        Json?        @default("[]")
   serviceType   ServiceType? @relation("Service_serviceType", fields: [serviceTypeId], references: [id])
-  serviceTypeId String?      @map("serviceType") @postgresql.Uuid
+  serviceTypeId String?      @map("serviceType")
   sortOrder     Int          @default(0)
   isPublished   Boolean      @default(true)
   createdAt     DateTime?    @default(now())
@@ -50,18 +69,18 @@ model Service {
 }
 
 model GalleryItem {
-  id               String       @id @default(uuid()) @postgresql.Uuid
+  id               String       @id @default(cuid())
   image_id         String?
-  image_extension  String?
   image_filesize   Int?
   image_width      Int?
   image_height     Int?
+  image_extension  String?
   labelEs          String       @default("")
   labelEn          String       @default("")
-  takenOn          DateTime?    @postgresql.Date
+  takenOn          DateTime?
   placeholderColor String       @default("#8a8a8a")
   serviceType      ServiceType? @relation("GalleryItem_serviceType", fields: [serviceTypeId], references: [id])
-  serviceTypeId    String?      @map("serviceType") @postgresql.Uuid
+  serviceTypeId    String?      @map("serviceType")
   sortOrder        Int          @default(0)
   isPublished      Boolean      @default(true)
   createdAt        DateTime?    @default(now())
@@ -82,7 +101,7 @@ model ContactInfo {
 }
 
 model SocialLink {
-  id          String                 @id @default(uuid()) @postgresql.Uuid
+  id          String                 @id @default(cuid())
   platform    SocialLinkPlatformType
   label       String                 @default("")
   url         String                 @default("")
@@ -93,7 +112,7 @@ model SocialLink {
 }
 
 model Review {
-  id          String    @id @default(uuid()) @postgresql.Uuid
+  id          String    @id @default(cuid())
   quoteEs     String    @default("")
   quoteEn     String    @default("")
   authorName  String    @default("")

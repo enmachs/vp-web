@@ -1,23 +1,19 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // prisma, @prisma/client, pg and express are already on Next 16's built-in
-  // auto-external list. These are not, and bundling them breaks Keystone's
-  // Node-specific code paths in a serverless function.
-  serverExternalPackages: [
-    "@keystone-6/core",
-    "@keystone-6/auth",
-    "@prisma/adapter-pg",
-    "graphql",
-  ],
+  reactCompiler: true,
+  serverExternalPackages: ['graphql'],
+  // Workaround since we diverged from Keystone reltionship and document views
+  // typescript: {
+  //   ignoreBuildErrors: true,
+  // },
   images: {
-    // Gallery images are served from Vercel Blob. Inert until components move
-    // off raw <img> onto next/image.
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com",
-        pathname: "/**",
+        protocol: 'https',
+        hostname: process.env.S3_ENDPOINT ? process.env.S3_ENDPOINT.replace(/^https?:\/\//, '').replace(/:\d+$/, '') : '/',
+        port: '',
+        pathname: '/**',
       },
     ],
   },

@@ -6,7 +6,10 @@ type User {
   name: String
   email: String
   password: PasswordState
-  createdAt: DateTime
+  role: Role
+  passwordResetToken: PasswordState
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
 }
 
 type PasswordState {
@@ -17,7 +20,6 @@ scalar DateTime @specifiedBy(url: "https://datatracker.ietf.org/doc/html/rfc3339
 
 input UserWhereUniqueInput {
   id: ID
-  email: String
 }
 
 input UserWhereInput {
@@ -26,8 +28,10 @@ input UserWhereInput {
   NOT: [UserWhereInput!]
   id: IDFilter
   name: StringFilter
-  email: StringFilter
-  createdAt: DateTimeNullableFilter
+  role: RoleWhereInput
+  passwordResetToken: PasswordFilter
+  passwordResetIssuedAt: DateTimeNullableFilter
+  passwordResetRedeemedAt: DateTimeNullableFilter
 }
 
 input IDFilter {
@@ -75,6 +79,10 @@ input NestedStringFilter {
   not: NestedStringFilter
 }
 
+input PasswordFilter {
+  isSet: Boolean!
+}
+
 input DateTimeNullableFilter {
   equals: DateTime
   in: [DateTime!]
@@ -89,8 +97,8 @@ input DateTimeNullableFilter {
 input UserOrderByInput {
   id: OrderDirection
   name: OrderDirection
-  email: OrderDirection
-  createdAt: OrderDirection
+  passwordResetIssuedAt: OrderDirection
+  passwordResetRedeemedAt: OrderDirection
 }
 
 enum OrderDirection {
@@ -102,7 +110,16 @@ input UserUpdateInput {
   name: String
   email: String
   password: String
-  createdAt: DateTime
+  role: RoleRelateToOneForUpdateInput
+  passwordResetToken: String
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
+}
+
+input RoleRelateToOneForUpdateInput {
+  create: RoleCreateInput
+  connect: RoleWhereUniqueInput
+  disconnect: Boolean
 }
 
 input UserUpdateArgs {
@@ -114,7 +131,108 @@ input UserCreateInput {
   name: String
   email: String
   password: String
-  createdAt: DateTime
+  role: RoleRelateToOneForCreateInput
+  passwordResetToken: String
+  passwordResetIssuedAt: DateTime
+  passwordResetRedeemedAt: DateTime
+}
+
+input RoleRelateToOneForCreateInput {
+  create: RoleCreateInput
+  connect: RoleWhereUniqueInput
+}
+
+type Role {
+  id: ID!
+  name: String
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo(where: UserWhereInput! = {}, orderBy: [UserOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: UserWhereUniqueInput): [User!]
+  assignedToCount(where: UserWhereInput! = {}): Int
+}
+
+input RoleWhereUniqueInput {
+  id: ID
+}
+
+input RoleWhereInput {
+  AND: [RoleWhereInput!]
+  OR: [RoleWhereInput!]
+  NOT: [RoleWhereInput!]
+  id: IDFilter
+  name: StringFilter
+  canSeeOtherPeople: BooleanFilter
+  canEditOtherPeople: BooleanFilter
+  canManagePeople: BooleanFilter
+  canManageRoles: BooleanFilter
+  canAccessDashboard: BooleanFilter
+  canManageContent: BooleanFilter
+  assignedTo: UserManyRelationFilter
+}
+
+input BooleanFilter {
+  equals: Boolean
+  not: BooleanFilter
+}
+
+input UserManyRelationFilter {
+  every: UserWhereInput
+  some: UserWhereInput
+  none: UserWhereInput
+}
+
+input RoleOrderByInput {
+  id: OrderDirection
+  name: OrderDirection
+  canSeeOtherPeople: OrderDirection
+  canEditOtherPeople: OrderDirection
+  canManagePeople: OrderDirection
+  canManageRoles: OrderDirection
+  canAccessDashboard: OrderDirection
+  canManageContent: OrderDirection
+}
+
+input RoleUpdateInput {
+  name: String
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo: UserRelateToManyForUpdateInput
+}
+
+input UserRelateToManyForUpdateInput {
+  disconnect: [UserWhereUniqueInput!]
+  set: [UserWhereUniqueInput!]
+  create: [UserCreateInput!]
+  connect: [UserWhereUniqueInput!]
+}
+
+input RoleUpdateArgs {
+  where: RoleWhereUniqueInput!
+  data: RoleUpdateInput!
+}
+
+input RoleCreateInput {
+  name: String
+  canSeeOtherPeople: Boolean
+  canEditOtherPeople: Boolean
+  canManagePeople: Boolean
+  canManageRoles: Boolean
+  canAccessDashboard: Boolean
+  canManageContent: Boolean
+  assignedTo: UserRelateToManyForCreateInput
+}
+
+input UserRelateToManyForCreateInput {
+  create: [UserCreateInput!]
+  connect: [UserWhereUniqueInput!]
 }
 
 type ServiceType {
@@ -188,11 +306,6 @@ input IntFilter {
   not: IntFilter
 }
 
-input BooleanFilter {
-  equals: Boolean
-  not: BooleanFilter
-}
-
 input ServiceTypeOrderByInput {
   id: OrderDirection
   key: OrderDirection
@@ -250,13 +363,11 @@ input ServiceTypeCreateInput {
 input ServiceRelateToManyForCreateInput {
   create: [ServiceCreateInput!]
   connect: [ServiceWhereUniqueInput!]
-  set: [ServiceWhereUniqueInput!]
 }
 
 input GalleryItemRelateToManyForCreateInput {
   create: [GalleryItemCreateInput!]
   connect: [GalleryItemWhereUniqueInput!]
-  set: [GalleryItemWhereUniqueInput!]
 }
 
 type Service {
@@ -356,7 +467,7 @@ type GalleryItem {
   image: ImageFieldOutput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceType
   sortOrder: Int
@@ -366,11 +477,11 @@ type GalleryItem {
 
 type ImageFieldOutput {
   id: ID!
-  url: String!
-  extension: ImageExtension!
   filesize: Int!
   width: Int!
   height: Int!
+  extension: ImageExtension!
+  url: String!
 }
 
 enum ImageExtension {
@@ -379,8 +490,6 @@ enum ImageExtension {
   webp
   gif
 }
-
-scalar CalendarDay @specifiedBy(url: "https://datatracker.ietf.org/doc/html/rfc3339#section-5.6")
 
 input GalleryItemWhereUniqueInput {
   id: ID
@@ -393,23 +502,12 @@ input GalleryItemWhereInput {
   id: IDFilter
   labelEs: StringFilter
   labelEn: StringFilter
-  takenOn: CalendarDayNullableFilter
+  takenOn: DateTimeNullableFilter
   placeholderColor: StringFilter
   serviceType: ServiceTypeWhereInput
   sortOrder: IntFilter
   isPublished: BooleanFilter
   createdAt: DateTimeNullableFilter
-}
-
-input CalendarDayNullableFilter {
-  equals: CalendarDay
-  in: [CalendarDay!]
-  notIn: [CalendarDay!]
-  lt: CalendarDay
-  lte: CalendarDay
-  gt: CalendarDay
-  gte: CalendarDay
-  not: CalendarDayNullableFilter
 }
 
 input GalleryItemOrderByInput {
@@ -427,7 +525,7 @@ input GalleryItemUpdateInput {
   image: ImageFieldInput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceTypeRelateToOneForUpdateInput
   sortOrder: Int
@@ -451,7 +549,7 @@ input GalleryItemCreateInput {
   image: ImageFieldInput
   labelEs: String
   labelEn: String
-  takenOn: CalendarDay
+  takenOn: DateTime
   placeholderColor: String
   serviceType: ServiceTypeRelateToOneForCreateInput
   sortOrder: Int
@@ -706,6 +804,12 @@ type Mutation {
   updateUsers(data: [UserUpdateArgs!]!): [User]
   deleteUser(where: UserWhereUniqueInput!): User
   deleteUsers(where: [UserWhereUniqueInput!]!): [User]
+  createRole(data: RoleCreateInput!): Role
+  createRoles(data: [RoleCreateInput!]!): [Role]
+  updateRole(where: RoleWhereUniqueInput!, data: RoleUpdateInput!): Role
+  updateRoles(data: [RoleUpdateArgs!]!): [Role]
+  deleteRole(where: RoleWhereUniqueInput!): Role
+  deleteRoles(where: [RoleWhereUniqueInput!]!): [Role]
   createServiceType(data: ServiceTypeCreateInput!): ServiceType
   createServiceTypes(data: [ServiceTypeCreateInput!]!): [ServiceType]
   updateServiceType(where: ServiceTypeWhereUniqueInput!, data: ServiceTypeUpdateInput!): ServiceType
@@ -744,6 +848,9 @@ type Mutation {
   deleteReviews(where: [ReviewWhereUniqueInput!]!): [Review]
   endSession: Boolean!
   authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
+  createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
+  sendUserPasswordResetLink(email: String!): Boolean!
+  redeemUserPasswordResetToken(email: String!, token: String!, password: String!): RedeemUserPasswordResetTokenResult
 }
 
 union UserAuthenticationWithPasswordResult = UserAuthenticationWithPasswordSuccess | UserAuthenticationWithPasswordFailure
@@ -757,10 +864,30 @@ type UserAuthenticationWithPasswordFailure {
   message: String!
 }
 
+input CreateInitialUserInput {
+  name: String
+  email: String
+  password: String
+}
+
+type RedeemUserPasswordResetTokenResult {
+  code: PasswordResetRedemptionErrorCode!
+  message: String!
+}
+
+enum PasswordResetRedemptionErrorCode {
+  FAILURE
+  TOKEN_EXPIRED
+  TOKEN_REDEEMED
+}
+
 type Query {
   user(where: UserWhereUniqueInput!): User
   users(where: UserWhereInput! = {}, orderBy: [UserOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: UserWhereUniqueInput): [User!]
   usersCount(where: UserWhereInput! = {}): Int
+  role(where: RoleWhereUniqueInput!): Role
+  roles(where: RoleWhereInput! = {}, orderBy: [RoleOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: RoleWhereUniqueInput): [Role!]
+  rolesCount(where: RoleWhereInput! = {}): Int
   serviceType(where: ServiceTypeWhereUniqueInput!): ServiceType
   serviceTypes(where: ServiceTypeWhereInput! = {}, orderBy: [ServiceTypeOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ServiceTypeWhereUniqueInput): [ServiceType!]
   serviceTypesCount(where: ServiceTypeWhereInput! = {}): Int
@@ -780,7 +907,16 @@ type Query {
   reviews(where: ReviewWhereInput! = {}, orderBy: [ReviewOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ReviewWhereUniqueInput): [Review!]
   reviewsCount(where: ReviewWhereInput! = {}): Int
   keystone: KeystoneMeta!
-  authenticatedItem: User
+  authenticatedItem: AuthenticatedItem
+  validateUserPasswordResetToken(email: String!, token: String!): ValidateUserPasswordResetTokenResult
+  redirectToInit: Boolean
+}
+
+union AuthenticatedItem = User
+
+type ValidateUserPasswordResetTokenResult {
+  code: PasswordResetRedemptionErrorCode!
+  message: String!
 }
 
 type KeystoneMeta {
@@ -789,34 +925,34 @@ type KeystoneMeta {
 
 type KeystoneAdminMeta {
   lists: [KeystoneAdminUIListMeta!]!
-  list(key: String!, itemId: ID): KeystoneAdminUIListMeta
+  list(key: String!): KeystoneAdminUIListMeta
 }
 
 type KeystoneAdminUIListMeta {
   key: String!
+  path: String!
   label: String!
   singular: String!
   plural: String!
-  path: String!
+  description: String
+  pageSize: Int!
   labelField: String!
   fields: [KeystoneAdminUIFieldMeta!]!
   groups: [KeystoneAdminUIFieldGroupMeta!]!
-  actions: [KeystoneAdminUIActionMeta!]!
   graphql: KeystoneAdminUIGraphQL!
-  pageSize: Int!
   initialColumns: [String!]!
   initialSearchFields: [String!]!
   initialSort: KeystoneAdminUISort
-  initialFilter: JSON
-  hiddenFilter: JSON
   isSingleton: Boolean!
-  hideNavigation: Boolean!
   hideCreate: Boolean!
   hideDelete: Boolean!
+  isHidden: Boolean!
+  itemQueryName: String!
+  listQueryName: String!
 }
 
 type KeystoneAdminUIFieldMeta {
-  key: String!
+  path: String!
   label: String!
   description: String
   isOrderable: Boolean!
@@ -826,8 +962,8 @@ type KeystoneAdminUIFieldMeta {
   viewsIndex: Int!
   customViewsIndex: Int
   createView: KeystoneAdminUIFieldMetaCreateView!
-  itemView: KeystoneAdminUIFieldMetaItemView
   listView: KeystoneAdminUIFieldMetaListView!
+  itemView(id: ID): KeystoneAdminUIFieldMetaItemView
   search: QueryMode
 }
 
@@ -838,19 +974,12 @@ enum KeystoneAdminUIFieldMetaIsNonNull {
 }
 
 type KeystoneAdminUIFieldMetaCreateView {
-  fieldMode: JSON!
-  isRequired: JSON!
+  fieldMode: KeystoneAdminUIFieldMetaCreateViewFieldMode!
 }
 
-type KeystoneAdminUIFieldMetaItemView {
-  fieldMode: JSON!
-  fieldPosition: KeystoneAdminUIFieldMetaItemViewFieldPosition!
-  isRequired: JSON!
-}
-
-enum KeystoneAdminUIFieldMetaItemViewFieldPosition {
-  form
-  sidebar
+enum KeystoneAdminUIFieldMetaCreateViewFieldMode {
+  edit
+  hidden
 }
 
 type KeystoneAdminUIFieldMetaListView {
@@ -862,66 +991,26 @@ enum KeystoneAdminUIFieldMetaListViewFieldMode {
   hidden
 }
 
+type KeystoneAdminUIFieldMetaItemView {
+  fieldMode: KeystoneAdminUIFieldMetaItemViewFieldMode
+  fieldPosition: KeystoneAdminUIFieldMetaItemViewFieldPosition
+}
+
+enum KeystoneAdminUIFieldMetaItemViewFieldMode {
+  edit
+  read
+  hidden
+}
+
+enum KeystoneAdminUIFieldMetaItemViewFieldPosition {
+  form
+  sidebar
+}
+
 type KeystoneAdminUIFieldGroupMeta {
   label: String!
   description: String
   fields: [KeystoneAdminUIFieldMeta!]!
-}
-
-type KeystoneAdminUIActionMeta {
-  key: String!
-  label: String!
-  icon: String
-  messages: KeystoneAdminUIActionMetaMessages!
-  graphql: KeystoneAdminUIActionMetaGraphQL
-  itemView: KeystoneAdminUIActionMetaItemView
-  listView: KeystoneAdminUIActionMetaListView!
-}
-
-type KeystoneAdminUIActionMetaMessages {
-  promptTitle: String!
-  promptTitleMany: String
-  prompt: String!
-  promptMany: String
-  promptConfirmLabel: String!
-  promptConfirmLabelMany: String
-  fail: String!
-  failMany: String
-  success: String!
-  successMany: String
-}
-
-type KeystoneAdminUIActionMetaGraphQL {
-  arguments: [KeystoneAdminUIActionMetaGraphQLArgument!]!
-  names: KeystoneAdminUIActionMetaGraphQLNames!
-}
-
-type KeystoneAdminUIActionMetaGraphQLArgument {
-  name: String!
-  type: String!
-  source: JSON
-}
-
-type KeystoneAdminUIActionMetaGraphQLNames {
-  one: String!
-  many: String
-}
-
-type KeystoneAdminUIActionMetaItemView {
-  actionMode: JSON!
-  navigation: KeystoneAdminUIActionMetaItemViewNavigation!
-  hidePrompt: Boolean!
-  hideToast: Boolean!
-}
-
-enum KeystoneAdminUIActionMetaItemViewNavigation {
-  follow
-  refetch
-  return
-}
-
-type KeystoneAdminUIActionMetaListView {
-  actionMode: JSON!
 }
 
 type KeystoneAdminUIGraphQL {

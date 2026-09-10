@@ -1,9 +1,17 @@
 import { Resend } from 'resend';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Resend client is created once at module scope.
+// Constructed on first request, not at module scope: the Resend constructor
+// throws when RESEND_API_KEY is unset, and Next evaluates module scope while
+// collecting page data during `next build`. A module-scope client therefore
+// turned a missing key into a *build* failure rather than a request failure.
 // process.env.RESEND_API_KEY is read server-side only — never sent to the browser.
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient: Resend | undefined;
+
+function getResend(): Resend {
+  resendClient ??= new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
 
 const BUSINESS_EMAIL = process.env.BUSINESS_EMAIL ?? 'hola@viajerosparaguana.com';
 const FROM_EMAIL = process.env.FROM_EMAIL ?? 'cotizaciones@viajerosparaguana.com';
@@ -158,7 +166,7 @@ export async function POST(req: NextRequest) {
   const payload = body as QuotePayload;
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to: BUSINESS_EMAIL,
       subject: `Cotización: ${payload.name} · ${payload.from} → ${payload.to}`,

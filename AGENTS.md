@@ -1,73 +1,117 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# keystone-starter
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+One Next.js app, two things living in it: a public landing page at `/`
+([`features/landing/`](features/landing/)) and an admin dashboard at
+`/dashboard` ([`features/dashboard/`](features/dashboard/)) backed by
+KeystoneJS. Originally forked from
+[junaid33/next-keystone-starter](https://github.com/junaid33/next-keystone-starter);
+the landing page and its content lists were merged in from a separate `vp-web`
+project. See [`VERCEL-DEPLOYMENT-NOTES.md`](VERCEL-DEPLOYMENT-NOTES.md) for the
+deploy-specific issues — this file is the general orientation.
 
-# This is NOT the Keystone you know
+**This is Keystone 6** (`@keystone-6/core@^6.5.1`), **not** Keystone 8.
+Anything you read about Keystone that mentions Prisma 7 driver adapters,
+`config.storage` moving to per-field, or `initFirstItem` being removed is
+describing a different major version — this project still uses `db.url`,
+top-level `storage`, and `initFirstItem` directly. Verify against
+`node_modules/@keystone-6/core/dist/declarations/` if in doubt.
 
-This project runs **Keystone 8** (`@keystone-6/core@8.1.0`, `@keystone-6/auth@10.0.5`) on **Prisma 7**. Nearly everything published about KeystoneJS — the official blog, most of keystonejs.com, every tutorial — describes **v6**, and a lot of it is now actively wrong. Verify against the installed package (`node_modules/@keystone-6/core/dist/declarations/`) before trusting any external source.
+## Architecture
 
-Things that no longer exist, that you will be tempted to reach for:
+- `keystone.ts` → [`features/keystone/index.ts`](features/keystone/index.ts) —
+  the **one** Keystone config. Unlike some Keystone/Next setups, there is no
+  split between an auth-free config (for the Next app) and a full config (for
+  a separate Admin UI container). This project **never builds Keystone's
+  generated Admin UI** — every `build`/`dev` script passes `--no-ui` — so
+  there is no second deploy target. The dashboard under `app/dashboard` is a
+  hand-built replacement that talks to Keystone over `/api/graphql`.
+- [`features/keystone/context.ts`](features/keystone/context.ts) — the
+  Keystone context Server Components/Route Handlers can call directly
+  (`.query.X`, `.db.X`). Created at module scope with a `globalThis` cache
+  guarded by `NODE_ENV !== 'production'` — see
+  `VERCEL-DEPLOYMENT-NOTES.md#issue-3` for why that matters on Fluid Compute.
+- [`proxy.ts`](proxy.ts) — Next middleware. For any `/dashboard/*` route it
+  calls `getAuthenticatedUser`
+  ([`features/dashboard/middleware.ts`](features/dashboard/middleware.ts)),
+  which issues an HTTP request to the app's **own** `/api/graphql` rather than
+  calling the Keystone context directly. This is a real cost (extra function
+  invocation + round trip per navigation) and a real failure mode — see
+  `VERCEL-DEPLOYMENT-NOTES.md#issue-2` before touching auth on Vercel.
+- Image storage is **S3-compatible** (`kind: "s3"`, `features/keystone/index.ts`),
+  bucket name `my_images`, currently used only by `GalleryItem.image`. There is
+  no Vercel Blob storage in this project — if you see a reference to one, it's
+  leftover from `vp-web` and needs to be ported to S3 or removed. See
+  `README.md#image-management` for the two field patterns (single image on a
+  list vs. a many-images-per-record relationship) with code examples.
 
-| Gone | Use instead |
-|---|---|
-| `@keystone-6/core/next` and `withKeystone()` | `serverExternalPackages` in `next.config.ts`. "Embedded mode" was removed; the export does not resolve. |
-| `db.url` | `db.prismaClientOptions()` returning `{ adapter: new PrismaPg({ connectionString }) }` — Prisma 7 is engine-free and **requires** a driver adapter. `datasourceUrl` throws. |
-| Top-level `config.storage` | A per-field `storage: StorageStrategy` object (`put`/`delete`/`url`). See `keystone/storage/vercel-blob.ts`. |
-| `initFirstItem` in `createAuth` | Seeding in `db.onConnect` (see `keystone/config.ts`). Without it a fresh database gives you a sign-in page you cannot get past. |
-| `keystone prisma` / `keystone migrate` CLI | The Prisma CLI directly (`npm run db:migrate`, `npm run db:deploy`). |
-| `graphql` export from `@keystone-6/core` | Renamed to `g` (`gWithContext` for context-bound). Only matters for `virtual()` fields. |
+## Content model
 
-## Architecture — two entrypoints, two deploy targets
+Two families of lists in [`features/keystone/models/`](features/keystone/models/),
+one file per list:
 
-The Admin UI is a generated Next.js **pages-router** app that Keystone runs behind Express via a Next *custom server*. **It cannot be deployed to Vercel.** The marketing site deploys to Vercel; the Admin UI deploys as a container (see `Dockerfile`). Both build from this repo against one Neon database.
+- **App lists** (pre-existing): `User`, `Role`. Access control is
+  permission-flag-based — see `permissions` and `rules` in
+  [`features/keystone/access.ts`](features/keystone/access.ts). (The starter
+  template shipped with `Todo`/`TodoImage` example lists; both were removed as
+  irrelevant to this project. If you find a stray reference to either outside
+  `NEXT_KEYSTONE_STARTER_GUIDE.md`/`DASHBOARD_DATA_FETCHING_ANALYSIS.md` — the
+  upstream template's own generic tutorial docs, left as-is — it's drift.)
+- **Landing content lists** (merged from `vp-web`): `ServiceType`, `Service`,
+  `GalleryItem`, `ContactInfo` (singleton), `SocialLink`, `Review`. Public
+  reads via `query: allowAll`; writes gated on the `canManageContent` role
+  flag. Shared field/access factories live in
+  [`features/keystone/models/shared.ts`](features/keystone/models/shared.ts) —
+  add new content lists through those factories rather than duplicating the
+  access shape inline.
+- Bilingual content is sibling fields on one row (`titleEs` / `titleEn`), not
+  one row per locale — matches the landing page's client-side language toggle
+  in `features/landing/components/LandingPage.tsx`.
+- **`ContactInfo` (and any future singleton) can be permanently empty.**
+  `isSingleton: true` + `create: denyAll` means the one row can never be
+  created through the API or dashboard — it must be seeded (see
+  `features/keystone/seed.ts`, `npm run db:seed`). A singleton also gets `id
+  Int` forced by Keystone regardless of the project's normal id kind; don't
+  set a list-level `db.idField` on one.
 
-- `keystone/config.base.ts` — auth-free, Admin UI disabled. **This is what the Next.js app imports.** Keeping `@keystone-6/auth` (and through it Express and the admin stack) out of this module is what stops the serverless bundle from dragging the whole admin into the marketing site. Do not import `keystone/config.ts` from anything under `app/` or `lib/`.
-- `keystone/config.ts` — `withAuth` + session + Admin UI + seeding. Used only by the Keystone CLI and the container. `keystone.ts` at the root re-exports it.
+## Verified gotchas
 
-## Non-obvious rules
+- **Every dashboard field type needs a view.** The custom dashboard resolves
+  field editors through [`features/keystone/view-order/`](features/keystone/view-order/)
+  and [`features/dashboard/views/registry.ts`](features/dashboard/views/registry.ts),
+  which **throws** for a field type with no registered view — this breaks the
+  whole item page, not just one field. Check
+  `features/dashboard/views/registry.ts` before using a field type not
+  currently used by any list — `bigInt`, `decimal`, `float`, `multiselect`,
+  and `document` all have registered views but, after the `Todo` example list
+  was removed, nothing in this project currently uses them; re-run
+  `npm run migrate:gen`'s view-order step after adding a field type back so
+  `VIEW_ORDER` picks it up. `calendarDay` has no view at all; use `timestamp`
+  instead (see `GalleryItem.takenOn`).
+- **Landing CSS must stay scoped.** `features/landing/landing.css` defines
+  `--accent` and `--radius-{sm,md,lg,xl}` — names the dashboard's shadcn theme
+  also uses. Everything in that file is scoped under `.vp-landing`
+  (`app/page.tsx` applies the class), and the stylesheet is imported from
+  `app/page.tsx` only, so it never ships on `/dashboard`. Don't move those
+  tokens to `:root`.
+- **Access control filters `query` to empty; it does not throw.** An
+  anonymous `{ users { id } }` returns `{"users": []}`, not an access-denied
+  error, even with rows present. Don't write a check that asserts on a thrown
+  error for a read-access boundary — assert on the empty result.
+- **`npm run build` runs migrations** (`keystone build --no-ui && npm run
+  migrate && next build`), a holdover from the Railway deploy target in
+  `railway.toml`. On Vercel this means every deployment — previews included —
+  runs `prisma migrate deploy` against whatever `DATABASE_URL` it's given. See
+  `VERCEL-DEPLOYMENT-NOTES.md#issue-1` before changing environments or the
+  build command.
+- **`.env` loading is explicit, not automatic.** Next.js loads `.env` on its
+  own; the Keystone config additionally does `import "dotenv/config"` at the
+  top of [`features/keystone/index.ts`](features/keystone/index.ts), which is
+  why bare `keystone`/`prisma` CLI invocations also pick it up. Don't remove
+  that import — it's not a leftover, it's what makes `keystone build` work
+  outside of Next.
 
-- **`getContext()` is eager.** It constructs a PrismaClient immediately, and Next evaluates module scope while collecting page data during `next build` — so a module-scope `const` makes a missing `DATABASE_URL` a *build* failure. Always go through `getKeystoneContext()` in `lib/keystone.ts`, which constructs lazily and caches on `globalThis` (the cache prevents Fluid Compute instance reuse and dev HMR from exhausting Neon's connection limit).
-- **Never call `.sudo()` from the Next.js app.** The site's context has no session and is evaluated as anonymous, so list access control genuinely applies — that is what stops an accidental `User` query from returning user rows. `sudo()` is for seeding only.
-- **Denying the `query` operation filters to empty; it does not throw.** An anonymous `{ users { id } }` returns `{"users": []}`, not an access-denied error, even with rows in the table. Verified. Do not write tests or health checks that assert on a thrown error.
-- **Typing lists needs explicit generics.** `satisfies Lists` is not enough; each list must be `list<Lists.X.TypeInfo>({ ... })`, and any shared `access` or field helper must be a **generic factory** (`<T extends BaseListTypeInfo>() => ...`) or it pins to `BaseListTypeInfo` and won't be assignable. See `keystone/access.ts` and the field helpers at the top of `keystone/schema.ts`.
-- **Nothing except Next.js loads `.env` for you.** Next reads `.env` and `.env.local`. The **Keystone CLI does not**, and neither does the **Prisma CLI**. Both are handled explicitly: `keystone/db.ts` and `prisma.config.ts` each call `process.loadEnvFile('.env')` in a try/catch. ESM hoisting is why this lives in `db.ts` rather than `keystone.ts`. Remove either call and `keystone dev` dies with `DATABASE_URL is not set` and `prisma migrate` with `datasource.url property is required`.
-- **`schema.prisma`, `schema.graphql` and `prisma.config.ts` are generated.** Never hand-edit `schema.prisma`/`schema.graphql`; change `keystone/schema.ts` and rebuild. (`prisma.config.ts` is the exception: Keystone only creates it if absent, so the env-loading edit there is safe and intentional.) `schema.prisma` **must be committed** — `postinstall` runs `keystone postinstall` (≡ `keystone build --frozen --no-ui`), which fails the build if the committed schema doesn't match the config. After any schema edit: `npx keystone build --no-ui && git add schema.prisma schema.graphql`.
-- **`generated/` and `.keystone/` are gitignored** and excluded from `tsconfig.json` and ESLint. They are rebuilt by `postinstall` + `prisma generate`.
-- **Singleton lists** (`ContactInfo`) get `id Int` forced by Keystone, overriding the global `idField: { kind: 'uuid' }`. Do not set a list-level `db.idField` on one — it throws. Reads take no `where`.
-- **Content is bilingual via sibling fields** (`titleEs` / `titleEn`) on one row, not one row per locale. The site's language toggle is client-side (`localStorage`, in `components/ClientPage.tsx`), so both locales must be fetched together and passed down.
-- **Everything renders inside one `'use client'` boundary.** `ClientPage.tsx` is the boundary and every section is beneath it, so Keystone reads must happen in `app/page.tsx` and be passed down as props.
-- **`revalidateTag` takes two arguments** in Next 16 (`revalidateTag('tag', 'max')`); the one-arg form is a TypeScript error. `cacheComponents` is off, so `use cache` / `cacheLife` are unavailable — use `export const revalidate`.
-- **Underscore-prefixed folders under `app/` are private** and never become routes. `app/api/_foo/route.ts` silently does not exist.
-- Migrations run **only** from the admin container, never from Vercel. After a schema change, deploy the container first (it applies the migration), then Vercel — the reverse order prerenders against columns that don't exist and fails the build.
+## Testing
 
-## Testing standard
-
-Tests run with Node's built-in runner via tsx: `npm test` → `tsx --test test/**/*.test.ts`. Integration tests use a real Postgres (`vp_web_shadow` or a dedicated `vp_web_test`) with Keystone's own helper, `resetDatabase` from `@keystone-6/core/testing/postgresql` — not mocks. Access control and singleton behaviour are emergent properties of the running system; a mocked Keystone would prove nothing about either.
-
-**A change is not done until it has a test, if it touches any of these:**
-
-- **Any access-control rule.** These are the security boundary. A test must assert that an anonymous context cannot read `User` and can read published content.
-- **Any singleton invariant.** `ContactInfo` must always be exactly one row, with `create` and `delete` denied through the API.
-- **Any derived or formatted value** — `contactHref()`, the bilingual `…En` → `…Es` fallback, `Intl` date formatting, `asStringArray()` guards on `json` fields. These are pure functions; test them directly, no database needed.
-- **The Blob storage contract.** `url(key)` must reconstruct exactly the pathname `put(key)` wrote. This is what `addRandomSuffix: false` guarantees, and it silently breaks every existing image if it regresses.
-
-**Assert access control on empty results, never on a thrown error.** Denying the `query` operation filters rows out; it does not raise. `expect(() => ...).toThrow()` will fail even when access control is working perfectly.
-
-Do not write snapshot tests against generated files (`schema.prisma`, `generated/**`) — `keystone postinstall --frozen` already enforces that in CI, and duplicating it produces churn on every schema change.
-
-## Production logging and alerting
-
-Two runtimes log to two different places: the site to Vercel, the Admin UI to its container host. Route both to one destination or incidents will only ever be half-visible.
-
-**Never log:** quote-form submitter names, phone numbers or message bodies (PII); connection strings; `BLOB_READ_WRITE_TOKEN`; `SESSION_SECRET`; password fields. Log identifiers and outcomes, not payloads.
-
-**Page immediately:**
-- Any 5xx from `/api/quote`. This is the business's only lead channel — a silent failure is a lost customer, and today a Resend outage surfaces only as a 502 to the visitor.
-- Prisma connection failures or pool exhaustion. Usually Neon autosuspend, or the `globalThis` context cache in `lib/keystone.ts` having regressed so every invocation opens a new pool.
-- `prisma migrate deploy` failing on container boot — the container will restart-loop and the Admin UI stays down.
-
-**Digest, do not page:** elevated 4xx, rate-limit trips, Blob upload/delete failures (currently silent — a failed `put()` shows only as a failed save in the Admin UI with nothing recorded server-side).
-
-Provision the log drain through the `vercel:marketplace` skill (category `observability`) rather than hardcoding a provider.
+No test suite exists yet. If you add access-control or singleton-invariant
+tests, assert on empty results, not thrown errors (see above) — that's the
+one non-obvious rule that will otherwise make a passing test suite lie to you.
