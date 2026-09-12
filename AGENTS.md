@@ -23,9 +23,10 @@ preview deploy. Do not implement something by committing to `main`.
 Schema changes follow that same path. Production apply is
 [`.github/workflows/migrate.yml`](.github/workflows/migrate.yml)
 (`npm run migrate:http` over Neon HTTPS), **not** `npm run build` and **not**
-`prisma migrate deploy` from a laptop. After the first successful run on
-`main` you can comment that workflow step out if later pushes should leave
-the schema alone.
+`prisma migrate deploy` from a laptop. The first production apply already
+ran; the apply step in that workflow is commented out. Uncomment it when
+you add files under `migrations/`, then comment it out again after the run
+succeeds.
 
 **This is Keystone 6** (`@keystone-6/core@^6.5.1`), **not** Keystone 8.
 Anything you read about Keystone that mentions Prisma 7 driver adapters,
