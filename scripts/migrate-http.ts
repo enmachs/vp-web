@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
 );
 `;
 
-type Sql = ReturnType<typeof neon>;
+type Sql = ReturnType<typeof neon<false, false>>;
 
 type MigrationFile = {
   name: string;
