@@ -1,0 +1,45 @@
+# Apply Prisma migrations to production Neon over HTTPS (port 443).
+#
+# `prisma migrate deploy` uses Prisma's Rust engine over TCP :5432, which
+# hangs from some networks (P1001). This job runs `npm run migrate:http`
+# instead, the same path as the Neon SQL Editor.
+#
+# First production apply: merge this workflow to `main` (or run it from
+# Actions → Migrate production Neon → Run workflow). After it succeeds you
+# can comment out the "Apply pending migrations" step if you want later
+# pushes to leave the schema alone. Leave it enabled to apply future files
+# under migrations/ the same way — the paths filter already skips unrelated
+# commits.
+#
+# Required repo secret: DATABASE_URL_UNPOOLED (Neon direct URL, unquoted).
+# Do not use the pooled DATABASE_URL. Vercel builds stay migrate-free.
+
+name: Migrate production Neon
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "migrations/**"
+      - "schema.prisma"
+      - "scripts/migrate-http.ts"
+      - ".github/workflows/migrate.yml"
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # First production migrate. Comment this step out after it succeeds
+      # if you do not want later main pushes to apply schema.
+      - name: Apply pending migrations
+        run: npm run migrate:http
+        env:
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}

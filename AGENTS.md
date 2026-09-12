@@ -9,6 +9,24 @@ the landing page and its content lists were merged in from a separate `vp-web`
 project. See [`VERCEL-DEPLOYMENT-NOTES.md`](VERCEL-DEPLOYMENT-NOTES.md) for the
 deploy-specific issues — this file is the general orientation.
 
+## Working on this repo
+
+New work goes on a **branch + pull request**, not straight onto `main`.
+Vercel deploys `main` to production; a PR is the review surface and the
+preview deploy. Do not implement something by committing to `main`.
+
+1. Branch from up-to-date `main` (`feat/…`, `fix/…`).
+2. Keep the PR to one concern (schema, workflow, landing copy, …).
+3. Open the PR and wait for review. Implementing a change includes opening
+   the PR; it does not include merging it.
+
+Schema changes follow that same path. Production apply is
+[`.github/workflows/migrate.yml`](.github/workflows/migrate.yml)
+(`npm run migrate:http` over Neon HTTPS), **not** `npm run build` and **not**
+`prisma migrate deploy` from a laptop. After the first successful run on
+`main` you can comment that workflow step out if later pushes should leave
+the schema alone.
+
 **This is Keystone 6** (`@keystone-6/core@^6.5.1`), **not** Keystone 8.
 Anything you read about Keystone that mentions Prisma 7 driver adapters,
 `config.storage` moving to per-field, or `initFirstItem` being removed is
@@ -97,12 +115,15 @@ one file per list:
   anonymous `{ users { id } }` returns `{"users": []}`, not an access-denied
   error, even with rows present. Don't write a check that asserts on a thrown
   error for a read-access boundary — assert on the empty result.
-- **`npm run build` runs migrations** (`keystone build --no-ui && npm run
-  migrate && next build`), a holdover from the Railway deploy target in
-  `railway.toml`. On Vercel this means every deployment — previews included —
-  runs `prisma migrate deploy` against whatever `DATABASE_URL` it's given. See
-  `VERCEL-DEPLOYMENT-NOTES.md#issue-1` before changing environments or the
-  build command.
+- **`npm run build` does not run migrations.** It is `keystone build --no-ui
+  && next build`. Railway still migrates in `startCommand` (`railway.toml`).
+  Vercel has no start command, so production schema changes go through
+  `.github/workflows/migrate.yml` (`npm run migrate:http`) against the
+  `DATABASE_URL_UNPOOLED` GitHub secret — not the pooled `DATABASE_URL` the
+  app uses at runtime. Local Postgres still uses `npm run migrate` (`prisma
+  migrate deploy` over TCP). Neon from a network that cannot complete the
+  :5432 handshake (Prisma `P1001`) uses `npm run migrate:http`. See
+  `VERCEL-DEPLOYMENT-NOTES.md#issue-1`.
 - **`.env` loading is explicit, not automatic.** Next.js loads `.env` on its
   own; the Keystone config additionally does `import "dotenv/config"` at the
   top of [`features/keystone/index.ts`](features/keystone/index.ts), which is

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "migrate:gen": "keystone build --no-ui && tsx features/keystone/view-order/generate-view-order.ts && keystone prisma migrate dev",
     "migrate": "prisma migrate deploy",
+    "migrate:http": "tsx scripts/migrate-http.ts",
     "db:seed": "tsx features/keystone/seed.ts"
   },
   "dependencies": {
@@ -96,6 +97,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/graphql-upload": "^17.0.0",
     "@types/node": "^20.14.10",
