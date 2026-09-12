@@ -11,7 +11,9 @@
 # under migrations/ the same way — the paths filter already skips unrelated
 # commits.
 #
-# Required repo secret: DATABASE_URL_UNPOOLED (Neon direct URL, unquoted).
+# Required GitHub Actions secret: DATABASE_URL_UNPOOLED (Neon direct URL,
+# unquoted), stored on the `production` environment — not a repo-level
+# secret. The job sets `environment: production` so that value is injected.
 # Do not use the pooled DATABASE_URL. Vercel builds stay migrate-free.
 
 name: Migrate production Neon
@@ -29,6 +31,7 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

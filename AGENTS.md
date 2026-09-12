@@ -119,9 +119,12 @@ one file per list:
   && next build`. Railway still migrates in `startCommand` (`railway.toml`).
   Vercel has no start command, so production schema changes go through
   `.github/workflows/migrate.yml` (`npm run migrate:http`) against the
-  `DATABASE_URL_UNPOOLED` GitHub secret — not the pooled `DATABASE_URL` the
-  app uses at runtime. Local Postgres still uses `npm run migrate` (`prisma
-  migrate deploy` over TCP). Neon from a network that cannot complete the
+  `production` environment secret `DATABASE_URL_UNPOOLED` — not a repo-level
+  secret, and not the pooled `DATABASE_URL` the app uses at runtime. The
+  workflow job must set `environment: production` or GitHub will not inject
+  it (the job then fails with “Set DATABASE_URL_UNPOOLED”). Local Postgres
+  still uses `npm run migrate` (`prisma migrate deploy` over TCP). Neon from
+  a network that cannot complete the
   :5432 handshake (Prisma `P1001`) uses `npm run migrate:http`. See
   `VERCEL-DEPLOYMENT-NOTES.md#issue-1`.
 - **`.env` loading is explicit, not automatic.** Next.js loads `.env` on its
