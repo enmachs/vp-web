@@ -4,12 +4,10 @@
 # hangs from some networks (P1001). This job runs `npm run migrate:http`
 # instead, the same path as the Neon SQL Editor.
 #
-# First production apply: merge this workflow to `main` (or run it from
-# Actions → Migrate production Neon → Run workflow). After it succeeds you
-# can comment out the "Apply pending migrations" step if you want later
-# pushes to leave the schema alone. Leave it enabled to apply future files
-# under migrations/ the same way — the paths filter already skips unrelated
-# commits.
+# First production apply already ran on main (9 migrations, empty Neon).
+# The apply step is commented out so later pushes do not touch the schema.
+# Uncomment it when you add files under migrations/, then comment it out
+# again after that run succeeds.
 #
 # Required GitHub Actions secret: DATABASE_URL_UNPOOLED (Neon direct URL,
 # unquoted), stored on the `production` environment — not a repo-level
@@ -40,9 +38,9 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # First production migrate. Comment this step out after it succeeds
-      # if you do not want later main pushes to apply schema.
-      - name: Apply pending migrations
-        run: npm run migrate:http
-        env:
-          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      # One-shot first apply: done on main 2026-09-12 (9 migrations).
+      # Uncomment to apply new migrations, then comment out again.
+      # - name: Apply pending migrations
+      #   run: npm run migrate:http
+      #   env:
+      #     DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
