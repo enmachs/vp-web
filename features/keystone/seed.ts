@@ -12,8 +12,8 @@
  * 2. The ContactInfo singleton row. This is not optional: ContactInfo sets
  *    `create: denyAll`, so the single row cannot be created through the API or
  *    the dashboard. Without seeding it here the list is permanently empty and
- *    `contactInfo` always resolves to null. Values match what the landing page
- *    currently hardcodes in features/landing/components/Footer.tsx.
+ *    `contactInfo` always resolves to null and the landing page footer renders
+ *    an empty contact column (features/landing/components/Footer.tsx).
  *
  * Uses sudo() because seeding runs unauthenticated, while the content lists
  * require canManageContent to write.
