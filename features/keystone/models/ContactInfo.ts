@@ -6,7 +6,8 @@ import { singletonPublicRead } from "./shared";
 /**
  * Singleton: contact details are one-of-each. Machine-readable values are
  * stored raw (e.g. '+584140000000') so tel:/mailto:/wa.me hrefs can be
- * derived in code — the landing page currently hardcodes them.
+ * derived in code — see features/landing/components/Footer.tsx, which reads
+ * this row via features/landing/lib/getContactInfo.ts.
  */
 export const ContactInfo = list({
   isSingleton: true,

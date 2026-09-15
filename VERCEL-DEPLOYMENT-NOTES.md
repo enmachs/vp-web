@@ -21,7 +21,7 @@ Each of these was tested locally, not inferred.
 | `prisma migrate deploy` | ❌ requires a live, reachable database |
 | File storage kind | ✅ `kind: "s3"` — no local filesystem writes |
 | Middleware database access | ✅ HTTP to its own `/api/graphql`, not Prisma directly |
-| `/` (landing page) | ✅ prerenders static |
+| `/` (landing page) | ✅ prerenders at build (ISR, `revalidate = 60`). It reads `ContactInfo` from the DB during prerender; if the DB is unreachable the read logs and falls back to `null` (`features/landing/lib/getContactInfo.ts`), so the build still succeeds. |
 
 The practical consequence: **only the migrate step needs a database at build time.**
 

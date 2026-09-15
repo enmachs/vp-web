@@ -60,7 +60,7 @@ body { background: #f4f4f3; overflow-x: hidden; }
   padding: 18px 20px;
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
 }
-.logo-lockup { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+.logo-lockup { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); padding-left: 10px; }
 .logo-lockup .wm { font-weight: 900; font-size: 15px; letter-spacing: 0.02em; line-height: 1; }
 .logo-lockup .wm small { display: block; font-weight: 300; font-size: 11px; letter-spacing: 0.22em; margin-top: 3px; }
 .nav-links { display: flex; gap: 28px; align-items: center; }

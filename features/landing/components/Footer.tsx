@@ -1,14 +1,23 @@
 import type { Lang } from '@/features/landing/lib/types';
+import type { ContactInfo } from '@/features/landing/lib/getContactInfo';
 import DICT from '@/features/landing/lib/dict';
 import LogoMark from './LogoMark';
 
 interface Props {
   lang: Lang;
+  contact: ContactInfo | null;
 }
 
-export default function Footer({ lang }: Props) {
+export default function Footer({ lang, contact }: Props) {
   const t = DICT[lang].footer;
   const navT = DICT[lang].nav;
+  // Bilingual fields are siblings on the one row; pick by the active language.
+  const address = lang === 'es' ? contact?.addressEs : contact?.addressEn;
+  const hours = lang === 'es' ? contact?.hoursEs : contact?.hoursEn;
+  // The raw value is stored machine-readable ('+584140000000'); wa.me wants digits only.
+  const whatsappHref = contact?.whatsapp
+    ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}`
+    : '#';
   return (
     <footer className="footer">
       <div className="footer-inner">
@@ -32,9 +41,18 @@ export default function Footer({ lang }: Props) {
           <div>
             <h4>{t.contact}</h4>
             <ul>
-              <li>Punto Fijo, Falcón</li>
-              <li>+58 414 000 0000</li>
-              <li>hola@viajerosparaguana.com</li>
+              {address && (
+                <li>
+                  {contact?.mapsUrl ? (
+                    <a href={contact.mapsUrl} target="_blank" rel="noopener noreferrer">{address}</a>
+                  ) : (
+                    address
+                  )}
+                </li>
+              )}
+              {contact?.phone && <li><a href={`tel:${contact.phone.replace(/\s/g, '')}`}>{contact.phone}</a></li>}
+              {contact?.email && <li><a href={`mailto:${contact.email}`}>{contact.email}</a></li>}
+              {hours && <li>{hours}</li>}
             </ul>
           </div>
           <div>
@@ -43,7 +61,7 @@ export default function Footer({ lang }: Props) {
               <li><a href="#">Instagram</a></li>
               <li><a href="#">Facebook</a></li>
               <li><a href="#">TikTok</a></li>
-              <li><a href="#">WhatsApp</a></li>
+              <li><a href={whatsappHref} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
             </ul>
           </div>
         </div>
