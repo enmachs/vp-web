@@ -56,12 +56,17 @@ top-level `storage`, and `initFirstItem` directly. Verify against
   calling the Keystone context directly. This is a real cost (extra function
   invocation + round trip per navigation) and a real failure mode — see
   `VERCEL-DEPLOYMENT-NOTES.md#issue-2` before touching auth on Vercel.
-- Image storage is **S3-compatible** (`kind: "s3"`, `features/keystone/index.ts`),
-  bucket name `my_images`, currently used only by `GalleryItem.image`. There is
-  no Vercel Blob storage in this project — if you see a reference to one, it's
-  leftover from `vp-web` and needs to be ported to S3 or removed. See
-  `README.md#image-management` for the two field patterns (single image on a
-  list vs. a many-images-per-record relationship) with code examples.
+- Image storage is **Cloudflare R2 over the S3 API** (`kind: "s3"`,
+  [`features/keystone/storage.ts`](features/keystone/storage.ts)), storage key
+  `my_images`, currently used only by `GalleryItem.image`. Uploads go to
+  `S3_ENDPOINT`; served URLs are rewritten to `IMAGE_PUBLIC_URL` via
+  `generateUrl` because R2's API host is not publicly readable. No `signed`,
+  no `acl` — see `README.md#image-management` for why, the env table, and the
+  two field patterns. Uploads are capped at 5 MB in one place
+  (`features/keystone/lib/upload-limits.ts`) and enforced both in
+  `pages/api/graphql.ts` and the dashboard image view. There is no Vercel Blob
+  storage in this project — if you see a reference to one, it's leftover from
+  `vp-web` and needs to be ported to R2 or removed.
 
 ## Content model
 

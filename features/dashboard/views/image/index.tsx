@@ -1,5 +1,6 @@
 import type { CellComponent, FieldControllerConfig } from '../../types'
-import { SUPPORTED_IMAGE_EXTENSIONS } from './utils'
+import { SUPPORTED_IMAGE_EXTENSIONS, formatBytes } from './utils'
+import { MAX_IMAGE_BYTES, MAX_IMAGE_LABEL } from '@/features/keystone/lib/upload-limits'
 
 export { Field } from './Field'
 
@@ -51,6 +52,11 @@ export function validateImage(extensions: readonly string[], v: ImageValue) {
   // check if the file is actually an image
   if (!v.data.file.type.includes('image')) {
     return `Sorry, that file type isn't accepted. Please try ${extensions.join(', ')}`
+  }
+
+  // Mirrors the multipart limit in pages/api/graphql.ts.
+  if (v.data.file.size > MAX_IMAGE_BYTES) {
+    return `That image is ${formatBytes(v.data.file.size)}; the limit is ${MAX_IMAGE_LABEL}.`
   }
 }
 

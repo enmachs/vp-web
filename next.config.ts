@@ -1,5 +1,15 @@
 import type { NextConfig } from 'next';
 
+const imageHost = (() => {
+  const base = process.env.IMAGE_PUBLIC_URL || process.env.S3_ENDPOINT;
+  if (!base) return undefined;
+  try {
+    return new URL(base).hostname;
+  } catch {
+    return undefined;
+  }
+})();
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ['graphql'],
@@ -8,14 +18,12 @@ const nextConfig: NextConfig = {
   //   ignoreBuildErrors: true,
   // },
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: process.env.S3_ENDPOINT ? process.env.S3_ENDPOINT.replace(/^https?:\/\//, '').replace(/:\d+$/, '') : '/',
-        port: '',
-        pathname: '/**',
-      },
-    ],
+    // Where Keystone's image URLs point (see features/keystone/storage.ts):
+    // the public host when IMAGE_PUBLIC_URL is set, otherwise the S3 API host.
+    // An empty list, not a bogus hostname, when neither is configured.
+    remotePatterns: imageHost
+      ? [{ protocol: 'https', hostname: imageHost, port: '', pathname: '/**' }]
+      : [],
   },
 };
 

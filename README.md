@@ -57,7 +57,7 @@ This project features a **modern admin architecture** with:
 
 2. **Configure environment variables:**
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
    
    Update `.env` with your database configuration:
@@ -117,43 +117,65 @@ record.
 
 ### Storage configuration
 
-One named storage target, `my_images`, is declared once in
-[`features/keystone/index.ts`](features/keystone/index.ts) and referenced by
-key from any `image()` field:
+One named storage target, `my_images`, is declared in
+[`features/keystone/storage.ts`](features/keystone/storage.ts), registered in
+[`features/keystone/index.ts`](features/keystone/index.ts), and referenced by
+key from any `image()` field. Production uses **Cloudflare R2** over its S3
+API; any S3-compatible provider works with the same config.
+
+Two hosts are involved, which is the one non-obvious part:
+
+- `S3_ENDPOINT` is where uploads go (`https://<account-id>.r2.cloudflarestorage.com`).
+  R2 does **not** serve objects publicly from this host.
+- `IMAGE_PUBLIC_URL` is where the browser fetches them from — the bucket's
+  `https://pub-….r2.dev` subdomain or a custom domain. `storage.ts` passes a
+  `generateUrl` to Keystone that swaps the API base for this one, keeping the
+  object key intact.
 
 ```ts
-// features/keystone/index.ts
-const {
-  S3_BUCKET_NAME: bucketName = "keystone-test",
-  S3_REGION: region = "ap-southeast-2",
-  S3_ACCESS_KEY_ID: accessKeyId = "keystone",
-  S3_SECRET_ACCESS_KEY: secretAccessKey = "keystone",
-  S3_ENDPOINT: endpoint = "https://sfo3.digitaloceanspaces.com",
-} = process.env;
-
-export default withAuth(
-  config({
-    // ...
-    storage: {
-      my_images: {
-        kind: "s3",
-        type: "image",
-        bucketName,
-        region,
-        accessKeyId,
-        secretAccessKey,
-        endpoint,
-        signed: { expiry: 5000 },   // signed download URLs, valid 5s after issue
-        forcePathStyle: true,
-      },
-    },
-  })
-);
+// features/keystone/storage.ts (abridged)
+export const imageStorage: StorageConfig = {
+  kind: "s3",
+  type: "image",
+  bucketName, region, accessKeyId, secretAccessKey, endpoint,
+  pathPrefix,               // S3_PATH_PREFIX — "dev/", "preview/", unset in prod
+  forcePathStyle: true,
+  generateUrl: (url) => url.startsWith(apiBase) ? publicBase + url.slice(apiBase.length) : url,
+};
 ```
 
-The fallback values are DigitalOcean Spaces test credentials — fine for
-`keystone build`, not for real uploads. Set the five `S3_*` env vars for
-anything that needs to actually store a file. See `.env.example`.
+Deliberately **not** set:
+
+- `signed` — the gallery is public, and presigned URLs change on every ISR
+  render, which defeats browser/CDN caching. (Keystone's `expiry` is in
+  seconds, not milliseconds; the old `5000` was ~83 minutes.)
+- `acl` — R2 rejects canned ACLs. Public reads are enabled at the bucket
+  level instead.
+
+| Variable | Value |
+| --- | --- |
+| `S3_BUCKET_NAME` | R2 bucket name |
+| `S3_REGION` | `auto` (R2 ignores it, the SDK requires it) |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | R2 API token with *Object Read & Write* scoped to that bucket |
+| `S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` |
+| `IMAGE_PUBLIC_URL` | `https://pub-<hash>.r2.dev` or a custom domain — also drives `next.config.ts` `remotePatterns` |
+| `S3_PATH_PREFIX` | Optional. `dev/` locally, `preview/` on Vercel previews, unset in production, so one bucket serves every environment |
+
+`r2.dev` subdomains are rate-limited and bypass Cloudflare's cache — fine for
+previews, not for production traffic. Attach a custom domain to the bucket
+(R2 → bucket → Settings → Custom Domains) once the site's zone is on
+Cloudflare; that puts the images behind the CDN with normal cache rules.
+
+**Uploads are capped at 5 MB.** `MAX_IMAGE_BYTES` in
+[`features/keystone/lib/upload-limits.ts`](features/keystone/lib/upload-limits.ts)
+is enforced twice: `graphql-upload`'s `maxFileSize` in
+[`pages/api/graphql.ts`](pages/api/graphql.ts) truncates the multipart stream
+before anything reaches R2, and the dashboard's image field refuses the file
+client-side with a readable message. Change the constant, not the call sites.
+
+Without `S3_BUCKET_NAME` the config falls back to placeholder values so
+`keystone build` still works, and logs a warning in production. See
+`.env.example`.
 
 ### Pattern 1 — a single image directly on a list
 
