@@ -56,12 +56,17 @@ top-level `storage`, and `initFirstItem` directly. Verify against
   calling the Keystone context directly. This is a real cost (extra function
   invocation + round trip per navigation) and a real failure mode — see
   `VERCEL-DEPLOYMENT-NOTES.md#issue-2` before touching auth on Vercel.
-- Image storage is **S3-compatible** (`kind: "s3"`, `features/keystone/index.ts`),
-  bucket name `my_images`, currently used only by `GalleryItem.image`. There is
-  no Vercel Blob storage in this project — if you see a reference to one, it's
-  leftover from `vp-web` and needs to be ported to S3 or removed. See
-  `README.md#image-management` for the two field patterns (single image on a
-  list vs. a many-images-per-record relationship) with code examples.
+- Image storage is **Cloudflare R2 over the S3 API** (`kind: "s3"`,
+  [`features/keystone/storage.ts`](features/keystone/storage.ts)), storage key
+  `my_images`, currently used only by `GalleryItem.image`. Uploads go to
+  `S3_ENDPOINT`; served URLs are rewritten to `IMAGE_PUBLIC_URL` via
+  `generateUrl` because R2's API host is not publicly readable. No `signed`,
+  no `acl` — see `README.md#image-management` for why, the env table, and the
+  two field patterns. Uploads are capped at 5 MB in one place
+  (`features/keystone/lib/upload-limits.ts`) and enforced both in
+  `pages/api/graphql.ts` and the dashboard image view. There is no Vercel Blob
+  storage in this project — if you see a reference to one, it's leftover from
+  `vp-web` and needs to be ported to R2 or removed.
 
 ## Content model
 
@@ -137,6 +142,26 @@ one file per list:
 
 ## Testing
 
-No test suite exists yet. If you add access-control or singleton-invariant
-tests, assert on empty results, not thrown errors (see above) — that's the
-one non-obvious rule that will otherwise make a passing test suite lie to you.
+Vitest, `npm test` (`test:unit` for the fast layer only). Config in
+[`vitest.config.ts`](vitest.config.ts); [`tests/setup.ts`](tests/setup.ts)
+loads `.env` and forces `S3_PATH_PREFIX=test/` so nothing a test uploads can
+land in the `dev/` or production folders of the shared R2 bucket.
+
+- **`tests/unit/`** — pure: the `storage.ts` URL rewrite / folder prefix and
+  the dashboard's 5 MB image validator. No network, no database.
+- **`tests/integration/`** — real local Postgres + real R2, skipped
+  automatically (`describe.skipIf(!hasIntegrationEnv)`) when `DATABASE_URL`
+  or the `S3_*`/`IMAGE_PUBLIC_URL` vars are missing, so CI without secrets
+  still passes. `gallery-image-upload.test.ts` drives `GalleryItem.image`
+  through the Keystone context (folder scoping, public URL serves a 200,
+  delete/replace/clear remove the object, role scoping);
+  `graphql-upload-gate.test.ts` spins up the real `pages/api/graphql.ts`
+  handler on an ephemeral port and sends spec-compliant multipart requests
+  (signed-in upload, the 5 MB gate, anonymous refusal, non-image refusal).
+  Both create their own fixtures (`__test-*` role/user, gallery rows) and
+  delete them in `afterEach`/`afterAll`; `tests/helpers/png.ts` encodes PNGs
+  in-process so there is no binary fixture directory.
+
+Access-control assertions: reads **filter to empty, they do not throw** (see
+above) — assert on the returned rows. Mutations are the one place Keystone
+throws `Access denied`, and that is what the write-side tests assert on.

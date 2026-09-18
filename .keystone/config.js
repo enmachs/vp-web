@@ -508,6 +508,41 @@ async function sendPasswordResetEmail(resetToken, to, baseUrl) {
   }
 }
 
+// features/keystone/storage.ts
+var {
+  S3_BUCKET_NAME: bucketName = "keystone-test",
+  S3_REGION: region = "auto",
+  S3_ACCESS_KEY_ID: accessKeyId,
+  S3_SECRET_ACCESS_KEY: secretAccessKey,
+  S3_ENDPOINT: endpoint = "https://example.r2.cloudflarestorage.com",
+  // Lets every environment share one bucket: "dev/" locally, "preview/" on
+  // Vercel previews, unset in production.
+  S3_PATH_PREFIX: pathPrefix,
+  IMAGE_PUBLIC_URL: publicUrl
+} = process.env;
+if (!process.env.S3_BUCKET_NAME && process.env.NODE_ENV === "production") {
+  console.warn(
+    "[storage] S3_BUCKET_NAME is not set \u2014 image uploads will fail. See README.md#image-management."
+  );
+}
+var apiBase = new URL(`/${bucketName}/`, endpoint).toString();
+var publicBase = publicUrl ? publicUrl.replace(/\/+$/, "") + "/" : void 0;
+var imageStorage = {
+  kind: "s3",
+  type: "image",
+  bucketName,
+  region,
+  accessKeyId,
+  secretAccessKey,
+  endpoint,
+  pathPrefix,
+  forcePathStyle: true,
+  // No `signed`: the gallery is public, and presigned URLs change on every
+  // ISR render, which defeats browser/CDN caching. No `acl` either: R2
+  // rejects canned ACLs — bucket-level public access does the job.
+  generateUrl: (url) => publicBase && url.startsWith(apiBase) ? publicBase + url.slice(apiBase.length) : url
+};
+
 // features/keystone/index.ts
 var databaseURL = process.env.DATABASE_URL || "file:./keystone.db";
 var sessionConfig = {
@@ -515,13 +550,6 @@ var sessionConfig = {
   // How long they stay signed in?
   secret: process.env.SESSION_SECRET || "this secret should only be used in testing"
 };
-var {
-  S3_BUCKET_NAME: bucketName = "keystone-test",
-  S3_REGION: region = "ap-southeast-2",
-  S3_ACCESS_KEY_ID: accessKeyId = "keystone",
-  S3_SECRET_ACCESS_KEY: secretAccessKey = "keystone",
-  S3_ENDPOINT: endpoint = "https://sfo3.digitaloceanspaces.com"
-} = process.env;
 var { withAuth } = (0, import_auth.createAuth)({
   listKey: "User",
   identityField: "email",
@@ -570,17 +598,7 @@ var keystone_default = withAuth(
     },
     lists: models,
     storage: {
-      my_images: {
-        kind: "s3",
-        type: "image",
-        bucketName,
-        region,
-        accessKeyId,
-        secretAccessKey,
-        endpoint,
-        signed: { expiry: 5e3 },
-        forcePathStyle: true
-      }
+      my_images: imageStorage
     },
     ui: {
       isAccessAllowed: ({ session }) => session?.data.role?.canAccessDashboard ?? false

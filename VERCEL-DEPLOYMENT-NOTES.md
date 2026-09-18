@@ -112,9 +112,9 @@ rather than a direct one, or you risk exhausting connections.
 
 ## Smaller items
 
-- **`next.config.ts` image patterns** —
-  [`next.config.ts`](next.config.ts) falls back to hostname `'/'` when
-  `S3_ENDPOINT` is unset, which is not a valid pattern. Set `S3_ENDPOINT`.
+- **`next.config.ts` image patterns** — ✅ fixed. `remotePatterns` is now
+  derived from `IMAGE_PUBLIC_URL` (falling back to `S3_ENDPOINT`) and is an
+  empty list rather than an invalid hostname when neither is set.
 - **Node version** — `engines: node >=20`; Vercel defaults to Node 24. Fine.
 - **Keystone's `next` override** — the `@keystone-6/core` → `next: 14.2.35`
   override only affects the Keystone Admin UI, which is disabled via `--no-ui`.
@@ -132,11 +132,13 @@ rather than a direct one, or you risk exhausting connections.
 | `DATABASE_URL` | Postgres (use the **pooled** URL) |
 | `SHADOW_DATABASE_URL` | Prisma migrations |
 | `SESSION_SECRET` | Keystone stateless sessions |
-| `S3_BUCKET_NAME` | Image storage |
-| `S3_REGION` | Image storage |
-| `S3_ACCESS_KEY_ID` | Image storage |
-| `S3_SECRET_ACCESS_KEY` | Image storage |
-| `S3_ENDPOINT` | Image storage — also drives `next.config.ts` remote patterns |
+| `S3_BUCKET_NAME` | Image storage — Cloudflare R2 bucket name |
+| `S3_REGION` | Image storage — `auto` for R2 |
+| `S3_ACCESS_KEY_ID` | Image storage — R2 API token (Object Read & Write, bucket-scoped) |
+| `S3_SECRET_ACCESS_KEY` | Image storage — R2 API token secret |
+| `S3_ENDPOINT` | Image storage — `https://<account-id>.r2.cloudflarestorage.com` (upload host, not public) |
+| `IMAGE_PUBLIC_URL` | Public image host (`pub-….r2.dev` or custom domain) — also drives `next.config.ts` remote patterns |
+| `S3_PATH_PREFIX` | Optional — `preview/` in the Preview environment, unset in Production, so both share one bucket |
 | `RESEND_API_KEY` | Landing page quote form (`app/api/quote/route.ts`) |
 | `BUSINESS_EMAIL` | Optional — quote form recipient |
 | `FROM_EMAIL` | Optional — quote form sender |

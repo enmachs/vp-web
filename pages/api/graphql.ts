@@ -1,4 +1,5 @@
 import { keystoneContext } from '../../features/keystone/context'
+import { MAX_IMAGE_BYTES } from '../../features/keystone/lib/upload-limits'
 import { createYoga } from "graphql-yoga";
 // @ts-ignore
 import processRequest from "graphql-upload/processRequest.js";
@@ -13,7 +14,11 @@ export const config = {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const contentType = req.headers["content-type"];
   if (contentType?.startsWith("multipart/form-data")) {
-    req.body = await processRequest(req, res);
+    // Server-side size gate. graphql-upload truncates the stream at the limit
+    // and Keystone's buffer read then throws before anything reaches R2, so
+    // an oversized file never becomes an orphaned object. The dashboard
+    // checks the same limit client-side for a friendlier message.
+    req.body = await processRequest(req, res, { maxFileSize: MAX_IMAGE_BYTES });
   }
 
   return createYoga({
