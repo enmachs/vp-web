@@ -142,6 +142,26 @@ one file per list:
 
 ## Testing
 
-No test suite exists yet. If you add access-control or singleton-invariant
-tests, assert on empty results, not thrown errors (see above) — that's the
-one non-obvious rule that will otherwise make a passing test suite lie to you.
+Vitest, `npm test` (`test:unit` for the fast layer only). Config in
+[`vitest.config.ts`](vitest.config.ts); [`tests/setup.ts`](tests/setup.ts)
+loads `.env` and forces `S3_PATH_PREFIX=test/` so nothing a test uploads can
+land in the `dev/` or production folders of the shared R2 bucket.
+
+- **`tests/unit/`** — pure: the `storage.ts` URL rewrite / folder prefix and
+  the dashboard's 5 MB image validator. No network, no database.
+- **`tests/integration/`** — real local Postgres + real R2, skipped
+  automatically (`describe.skipIf(!hasIntegrationEnv)`) when `DATABASE_URL`
+  or the `S3_*`/`IMAGE_PUBLIC_URL` vars are missing, so CI without secrets
+  still passes. `gallery-image-upload.test.ts` drives `GalleryItem.image`
+  through the Keystone context (folder scoping, public URL serves a 200,
+  delete/replace/clear remove the object, role scoping);
+  `graphql-upload-gate.test.ts` spins up the real `pages/api/graphql.ts`
+  handler on an ephemeral port and sends spec-compliant multipart requests
+  (signed-in upload, the 5 MB gate, anonymous refusal, non-image refusal).
+  Both create their own fixtures (`__test-*` role/user, gallery rows) and
+  delete them in `afterEach`/`afterAll`; `tests/helpers/png.ts` encodes PNGs
+  in-process so there is no binary fixture directory.
+
+Access-control assertions: reads **filter to empty, they do not throw** (see
+above) — assert on the returned rows. Mutations are the one place Keystone
+throws `Access denied`, and that is what the write-side tests assert on.
