@@ -365,9 +365,7 @@ var SocialLink = (0, import_core7.list)({
     label: (0, import_fields8.text)({ validation: { isRequired: true } }),
     url: (0, import_fields8.text)({ validation: { isRequired: true } }),
     handle: (0, import_fields8.text)(),
-    // Unique at the database: the landing page orders by this field, so two
-    // rows sharing a rank would have undefined order. The validate hook is
-    // only a friendlier error; the unique index is the actual guarantee.
+    // Unique index is the real guarantee; the hook is a friendlier error.
     sortOrder: sortOrder({
       isIndexed: "unique",
       ui: {
