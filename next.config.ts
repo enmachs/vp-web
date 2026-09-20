@@ -13,6 +13,12 @@ const imageHost = (() => {
 const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ['graphql'],
+  experimental: {
+    // Turbopack (next dev) fetches next/font/google with a bundled CA store.
+    // That fails locally here, so fonts silently fall back to Arial. System CAs
+    // match Node/curl. Production `next build` uses webpack and is unaffected.
+    turbopackUseSystemTlsCerts: true,
+  },
   // Workaround since we diverged from Keystone reltionship and document views
   // typescript: {
   //   ignoreBuildErrors: true,

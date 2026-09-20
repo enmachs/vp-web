@@ -1,40 +1,51 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 import type { Lang } from '@/features/landing/lib/types';
+import type { GalleryItem } from '@/features/landing/lib/getGalleryItems';
+import type { ServiceType } from '@/features/landing/lib/getServiceTypes';
 import DICT from '@/features/landing/lib/dict';
-import { PLACEHOLDERS, type GalleryPhoto } from '@/features/landing/lib/data';
 import Placeholder from './Placeholder';
+import EmptyState from './EmptyState';
 
 interface Props {
   lang: Lang;
+  items: GalleryItem[] | null;
+  serviceTypes: ServiceType[] | null;
 }
 
+// Tile shapes cycle through the 12-column grid; 8 fills it exactly.
 const SIZES = ['g-a', 'g-b', 'g-c', 'g-d', 'g-e', 'g-f', 'g-g', 'g-h'];
+const MAX_TILES = SIZES.length;
+const ALL = 'all';
 
-export default function Gallery({ lang }: Props) {
+function formatTakenOn(iso: string | null, lang: Lang): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  // 'Mar 2025' vs 'mar 2025' is a locale difference, so format here rather
+  // than storing a bilingual pair.
+  return d.toLocaleDateString(lang === 'es' ? 'es-VE' : 'en-US', { month: 'short', year: 'numeric' });
+}
+
+export default function Gallery({ lang, items, serviceTypes }: Props) {
   const t = DICT[lang].gallery;
-  const [filter, setFilter] = useState('all');
-  const [uploads, setUploads] = useState<GalleryPhoto[]>([]);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState(ALL);
 
+  const rows = items ?? [];
+  // One tab per published ServiceType, keyed on `key` to match
+  // GalleryItem.serviceTypeKey; "All" is always first.
   const tabs = [
-    { k: 'all', v: t.all }, { k: 'trips', v: t.trips }, { k: 'pkg', v: t.pkg }, { k: 'clients', v: t.clients },
+    { key: ALL, label: t.all },
+    ...(serviceTypes ?? []).map((st) => ({
+      key: st.key,
+      label: (lang === 'en' && st.nameEn) || st.nameEs,
+    })),
   ];
-  const photos = [...uploads, ...PLACEHOLDERS].filter((p) => filter === 'all' || p.cat === filter);
-
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    const newPhotos: GalleryPhoto[] = files.map((f) => ({
-      src: URL.createObjectURL(f),
-      label: f.name.replace(/\.[^.]+$/, ''),
-      date: new Date().toLocaleDateString(lang === 'es' ? 'es-VE' : 'en-US', { month: 'short', year: 'numeric' }),
-      cat: 'clients',
-      bg: '#888',
-    }));
-    setUploads((prev) => [...newPhotos, ...prev]);
-    e.target.value = '';
-  }
+  const photos = rows
+    .filter((p) => filter === ALL || p.serviceTypeKey === filter)
+    .slice(0, MAX_TILES);
 
   return (
     <section className="section" id="gallery">
@@ -46,39 +57,51 @@ export default function Gallery({ lang }: Props) {
           </div>
           <p className="lead">{t.lead}</p>
         </div>
-        <div className="gallery-tabs">
-          {tabs.map((tab) => (
-            <button key={tab.k} className={filter === tab.k ? 'active' : ''} onClick={() => setFilter(tab.k)}>{tab.v}</button>
-          ))}
-          <button onClick={() => fileRef.current?.click()} style={{ marginLeft: 'auto', background: 'var(--ink)', color: 'var(--bg)', borderColor: 'var(--ink)' }}>
-            + {t.upload}
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onFile} />
-        </div>
-        <div className="gallery">
-          {photos.slice(0, 7).map((p, i) => (
-            <div key={i} className={'gtile ' + SIZES[i % SIZES.length]}>
-              {p.src ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.src} alt={p.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <Placeholder color={p.bg} hint={p.cat.toUpperCase()} />
-              )}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 45%, rgba(14,14,14,0.55) 100%)' }} />
-              <div className="cap">
-                <strong>{p.label}</strong>
-                <span className="date">{p.date}</span>
-              </div>
-            </div>
-          ))}
-          <div className={'gtile upload ' + SIZES[7]} onClick={() => fileRef.current?.click()}>
-            <div className="upload-inner">
-              <div className="plus">+</div>
-              <p>{t.upload}</p>
-              <p style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.06em', textTransform: 'none', fontFamily: 'var(--font-crimson)', fontStyle: 'italic', opacity: 0.7, fontWeight: 400 }}>{t.uploadHint}</p>
-            </div>
+        {tabs.length > 1 && (
+          <div className="gallery-tabs" role="tablist">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={filter === tab.key}
+                className={filter === tab.key ? 'active' : ''}
+                onClick={() => setFilter(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </div>
+        )}
+        {photos.length === 0 ? (
+          <EmptyState>{t.empty}</EmptyState>
+        ) : (
+          <div className="gallery">
+            {photos.map((p, i) => {
+              const label = (lang === 'en' && p.labelEn) || p.labelEs;
+              const date = formatTakenOn(p.takenOn, lang);
+              return (
+                <div key={p.id} className={'gtile ' + SIZES[i % SIZES.length]}>
+                  {p.image ? (
+                    <Image
+                      src={p.image.url}
+                      alt={label}
+                      fill
+                      sizes="(max-width: 900px) 50vw, 33vw"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Placeholder color={p.placeholderColor} hint={p.serviceTypeKey?.toUpperCase()} />
+                  )}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 45%, rgba(14,14,14,0.55) 100%)' }} />
+                  <div className="cap">
+                    <strong>{label}</strong>
+                    {date && <span className="date">{date}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );
