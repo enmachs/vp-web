@@ -170,7 +170,11 @@ var import_fields4 = require("@keystone-6/core/fields");
 // features/keystone/models/shared.ts
 var import_access5 = require("@keystone-6/core/access");
 var import_fields3 = require("@keystone-6/core/fields");
-var sortOrder = () => (0, import_fields3.integer)({ defaultValue: 0, validation: { isRequired: true } });
+var sortOrder = (opts = {}) => (0, import_fields3.integer)({
+  defaultValue: 0,
+  ...opts,
+  validation: { isRequired: true, ...opts.validation }
+});
 var isPublished = () => (0, import_fields3.checkbox)({ defaultValue: true });
 var createdAt = () => (0, import_fields3.timestamp)({
   defaultValue: { kind: "now" },
@@ -328,6 +332,15 @@ var ContactInfo = (0, import_core6.list)({
 // features/keystone/models/SocialLink.ts
 var import_core7 = require("@keystone-6/core");
 var import_fields8 = require("@keystone-6/core/fields");
+var UNIQUE_SORT_ORDER_ERROR = "already used by another social link";
+async function nextSortOrder(context) {
+  const [last] = await context.sudo().query.SocialLink.findMany({
+    orderBy: [{ sortOrder: "desc" }],
+    take: 1,
+    query: "sortOrder"
+  });
+  return (typeof last?.sortOrder === "number" ? last.sortOrder : 0) + 1;
+}
 var SocialLink = (0, import_core7.list)({
   access: publicReadContentWrite(),
   ui: {
@@ -352,7 +365,49 @@ var SocialLink = (0, import_core7.list)({
     label: (0, import_fields8.text)({ validation: { isRequired: true } }),
     url: (0, import_fields8.text)({ validation: { isRequired: true } }),
     handle: (0, import_fields8.text)(),
-    sortOrder: sortOrder(),
+    // Unique at the database: the landing page orders by this field, so two
+    // rows sharing a rank would have undefined order. The validate hook is
+    // only a friendlier error; the unique index is the actual guarantee.
+    sortOrder: sortOrder({
+      isIndexed: "unique",
+      ui: {
+        description: "Must be unique. Lower numbers appear first. New links default to one past the current highest."
+      },
+      hooks: {
+        resolveInput: async ({
+          operation,
+          inputData,
+          resolvedData,
+          context
+        }) => {
+          if (operation !== "create") return resolvedData.sortOrder;
+          if (inputData.sortOrder != null) return resolvedData.sortOrder;
+          return nextSortOrder(context);
+        },
+        validate: async ({
+          operation,
+          resolvedData,
+          item,
+          addValidationError,
+          context
+        }) => {
+          if (operation === "delete") return;
+          const value = resolvedData.sortOrder !== void 0 && resolvedData.sortOrder !== null ? resolvedData.sortOrder : item?.sortOrder;
+          if (typeof value !== "number") return;
+          const clash = await context.sudo().query.SocialLink.findMany({
+            where: {
+              sortOrder: { equals: value },
+              ...item?.id ? { id: { not: { equals: String(item.id) } } } : {}
+            },
+            take: 1,
+            query: "id"
+          });
+          if (clash.length > 0) {
+            addValidationError(UNIQUE_SORT_ORDER_ERROR);
+          }
+        }
+      }
+    }),
     isPublished: isPublished(),
     createdAt: createdAt()
   }

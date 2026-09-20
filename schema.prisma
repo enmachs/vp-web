@@ -106,7 +106,7 @@ model SocialLink {
   label       String                 @default("")
   url         String                 @default("")
   handle      String                 @default("")
-  sortOrder   Int                    @default(0)
+  sortOrder   Int                    @unique @default(0)
   isPublished Boolean                @default(true)
   createdAt   DateTime?              @default(now())
 }
