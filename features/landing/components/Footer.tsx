@@ -1,14 +1,16 @@
 import type { Lang } from '@/features/landing/lib/types';
 import type { ContactInfo } from '@/features/landing/lib/getContactInfo';
+import type { SocialLink } from '@/features/landing/lib/getSocialLinks';
 import DICT from '@/features/landing/lib/dict';
 import LogoMark from './LogoMark';
 
 interface Props {
   lang: Lang;
   contact: ContactInfo | null;
+  socialLinks: SocialLink[] | null;
 }
 
-export default function Footer({ lang, contact }: Props) {
+export default function Footer({ lang, contact, socialLinks }: Props) {
   const t = DICT[lang].footer;
   const navT = DICT[lang].nav;
   // Bilingual fields are siblings on the one row; pick by the active language.
@@ -58,9 +60,11 @@ export default function Footer({ lang, contact }: Props) {
           <div>
             <h4>{t.social}</h4>
             <ul>
-              <li><a href="#">Instagram</a></li>
-              <li><a href="#">Facebook</a></li>
-              <li><a href="#">TikTok</a></li>
+              {socialLinks?.map((link) => (
+                <li key={link.id}>
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+                </li>
+              ))}
               <li><a href={whatsappHref} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
             </ul>
           </div>

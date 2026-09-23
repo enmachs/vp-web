@@ -648,6 +648,7 @@ enum SocialLinkPlatformType {
 
 input SocialLinkWhereUniqueInput {
   id: ID
+  sortOrder: Int
 }
 
 input SocialLinkWhereInput {

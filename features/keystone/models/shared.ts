@@ -14,8 +14,12 @@ import { permissions } from "../access";
  */
 
 /** Explicit ordering, so nothing depends on insertion order. */
-export const sortOrder = () =>
-  integer({ defaultValue: 0, validation: { isRequired: true } });
+export const sortOrder = (opts: Parameters<typeof integer>[0] = {}) =>
+  integer({
+    defaultValue: 0,
+    ...opts,
+    validation: { isRequired: true, ...opts.validation },
+  });
 
 /** Lets an editor stage content without a deploy. */
 export const isPublished = () => checkbox({ defaultValue: true });

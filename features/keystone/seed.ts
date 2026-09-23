@@ -3,13 +3,17 @@
  *
  * Run with: npm run db:seed
  *
- * Seeds two things:
+ * Seeds three things:
  *
- * 1. The ServiceType taxonomy — everything else relates to it, and the keys
- *    must match the category values the landing page already uses
- *    (features/landing/components/Gallery.tsx filters on 'trips'|'pkg'|'clients').
+ * 1. The ServiceType taxonomy — everything else relates to it. The landing
+ *    gallery builds its filter tabs from the published rows and matches
+ *    GalleryItem.serviceType on `key`.
  *
- * 2. The ContactInfo singleton row. This is not optional: ContactInfo sets
+ * 2. The two Service rows the landing page used to hardcode in dict.ts
+ *    (features/landing/components/Services.tsx now reads published rows), so
+ *    a fresh database does not render the services section empty.
+ *
+ * 3. The ContactInfo singleton row. This is not optional: ContactInfo sets
  *    `create: denyAll`, so the single row cannot be created through the API or
  *    the dashboard. Without seeding it here the list is permanently empty and
  *    `contactInfo` always resolves to null and the landing page footer renders
@@ -27,6 +31,31 @@ const SERVICE_TYPES = [
   // `as const` keeps `kind` as the literal union the generated
   // ServiceTypeKindType expects, rather than widening it to string.
 ] as const;
+
+const SERVICES = [
+  {
+    slug: 'viajes',
+    serviceTypeKey: 'trips',
+    titleEs: 'Viajes',
+    titleEn: 'Trips',
+    bodyEs: 'Traslados cómodos entre Paraguaná, el occidente y el centro del país. Privados o compartidos, con paradas acordadas y espacio para el equipaje real de una familia.',
+    bodyEn: 'Comfortable transfers between Paraguaná, the west and the center of the country. Private or shared, with agreed stops and room for real family luggage.',
+    tagsEs: ['Privado', 'Compartido', 'Aeropuerto', 'Grupos'],
+    tagsEn: ['Private', 'Shared', 'Airport', 'Groups'],
+    sortOrder: 1,
+  },
+  {
+    slug: 'encomiendas',
+    serviceTypeKey: 'pkg',
+    titleEs: 'Encomiendas',
+    titleEn: 'Parcels',
+    bodyEs: 'Enviamos lo que necesitas llegar a tiempo: documentos, repuestos, mercancía, cajas familiares. Recogida puerta a puerta y entrega con confirmación.',
+    bodyEn: 'We move what needs to arrive on time: documents, spare parts, goods, family boxes. Door-to-door pickup, confirmed delivery.',
+    tagsEs: ['Puerta a puerta', 'Rastreo', 'Mismo día', 'Carga especial'],
+    tagsEn: ['Door to door', 'Tracking', 'Same day', 'Special cargo'],
+    sortOrder: 2,
+  },
+];
 
 const CONTACT_INFO = {
   email: 'hola@viajerosparaguana.com',
@@ -57,6 +86,24 @@ async function main() {
       query: "id key",
     });
     console.log(`[seed] created ServiceType "${serviceType.key}"`);
+  }
+
+  for (const { serviceTypeKey, ...service } of SERVICES) {
+    const existing = await context.query.Service.findOne({
+      where: { slug: service.slug },
+      query: 'id',
+    });
+
+    if (existing) {
+      console.log(`[seed] Service "${service.slug}" already exists — skipping`);
+      continue;
+    }
+
+    await context.query.Service.createOne({
+      data: { ...service, serviceType: { connect: { key: serviceTypeKey } } },
+      query: 'id slug',
+    });
+    console.log(`[seed] created Service "${service.slug}"`);
   }
 
   const existingContact = await context.query.ContactInfo.findOne({ query: 'id' });

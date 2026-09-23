@@ -38,9 +38,7 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # One-shot first apply: done on main 2026-09-12 (9 migrations).
-      # Uncomment to apply new migrations, then comment out again.
-      # - name: Apply pending migrations
-      #   run: npm run migrate:http
-      #   env:
-      #     DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      - name: Apply pending migrations
+        run: npm run migrate:http
+        env:
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
