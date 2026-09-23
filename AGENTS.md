@@ -70,7 +70,7 @@ top-level `storage`, and `initFirstItem` directly. Verify against
 
 ## Content model
 
-Two families of lists in [`features/keystone/models/`](features/keystone/models/),
+Three families of lists in [`features/keystone/models/`](features/keystone/models/),
 one file per list:
 
 - **App lists** (pre-existing): `User`, `Role`. Access control is
@@ -87,6 +87,19 @@ one file per list:
   [`features/keystone/models/shared.ts`](features/keystone/models/shared.ts) —
   add new content lists through those factories rather than duplicating the
   access shape inline.
+- **Submission lists**: `QuoteRequest`. Rows come from the public, not from an
+  editor, so the access shape is inverted — `query` is gated on
+  `canManageContent` (rows hold a name and a phone number, so this is the one
+  content-adjacent list that must **not** be `query: allowAll`) while
+  `create`/`update`/`delete` are all `denyAll`. The only way to write one is
+  `keystoneContext.sudo()`, the same escape hatch `seed.ts` uses; the landing
+  quote form (`app/api/quote/route.ts`) is wired to it separately. Don't reach
+  for `shared.ts`'s `contentUi()` on one of these: it gates
+  `hideCreate`/`hideDelete` on `canManageContent`, which would show a Create
+  button to exactly the people who can read the list. Note the
+  dashboard's bulk delete is **not** gated by `hideDelete` (see
+  `features/dashboard/components/ListTable.tsx`) — `delete: denyAll` is what
+  actually protects the rows; the mutation fails with a toast.
 - Bilingual content is sibling fields on one row (`titleEs` / `titleEn`), not
   one row per locale — matches the landing page's client-side language toggle
   in `features/landing/components/LandingPage.tsx`.
