@@ -2,20 +2,47 @@
 
 import { useState } from 'react';
 import type { Lang } from '@/features/landing/lib/types';
+import type { ServiceType } from '@/features/landing/lib/getServiceTypes';
+import { HEARD_OPTIONS } from '@/features/keystone/lib/heard-options';
 import DICT from '@/features/landing/lib/dict';
 import LogoMark from './LogoMark';
 
 interface Props {
   lang: Lang;
+  serviceTypes: ServiceType[] | null;
 }
 
-const EMPTY = { name: '', from: '', to: '', type: '', phone: '', heard: '', notes: '' };
+// Keys match the payload app/api/quote/route.ts expects, so the form object
+// posts as-is. They used to carry the visible label, which meant the same
+// answer arrived as 'Viaje' or 'Trip' depending on the language toggle.
+const EMPTY = {
+  fullName: '',
+  fromLocation: '',
+  toLocation: '',
+  serviceTypeId: '',
+  phone: '',
+  howHeardFromUs: '',
+  details: '',
+};
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
-export default function Tender({ lang }: Props) {
+export default function Tender({ lang, serviceTypes }: Props) {
   const t = DICT[lang].tender;
   const [form, setForm] = useState(EMPTY);
+
+  // Only sellable types are quotable; `showcase` rows are gallery tags.
+  const quotable = (serviceTypes ?? []).filter((st) => st.kind === 'service');
+
+  // nameEn is optional in the model, so English falls back to Spanish — same
+  // rule the gallery filters use.
+  const serviceTypeName = (st: ServiceType) =>
+    (lang === 'en' && st.nameEn) || st.nameEs;
+
+  const serviceTypeLabel = (id: string) => {
+    const st = quotable.find((s) => s.id === id);
+    return st ? serviceTypeName(st) : '';
+  };
   const [status, setStatus] = useState<Status>('idle');
   const [serverError, setServerError] = useState('');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -28,8 +55,12 @@ export default function Tender({ lang }: Props) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Client-side validation (UX only — server validates too)
-    const required = ['name', 'from', 'to', 'type', 'phone', 'heard'];
+    // Client-side validation (UX only — server validates too).
+    // serviceTypeId is only required when there is something to pick: the
+    // ServiceType read degrades to null on failure (see published.ts), and an
+    // empty dropdown must not make the form unsubmittable.
+    const required = ['fullName', 'fromLocation', 'toLocation', 'phone', 'howHeardFromUs'];
+    if (quotable.length > 0) required.push('serviceTypeId');
     const errs: Record<string, boolean> = {};
     required.forEach((k) => { if (!form[k as keyof typeof form]) errs[k] = true; });
     if (form.phone && form.phone.length < 7) errs.phone = true;
@@ -43,7 +74,13 @@ export default function Tender({ lang }: Props) {
       const res = await fetch('/api/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          language: lang,
+          // Snapshot of the option the visitor saw, so the record stays
+          // readable even if the taxonomy row is later renamed or removed.
+          serviceTypeLabel: serviceTypeLabel(form.serviceTypeId),
+        }),
       });
 
       if (res.ok) {
@@ -112,20 +149,23 @@ export default function Tender({ lang }: Props) {
                   <div className="form-grid">
                     <div className="field full">
                       <label>{t.name}</label>
-                      <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={t.namePh} style={errors.name ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
+                      <input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} placeholder={t.namePh} style={errors.fullName ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
                     </div>
                     <div className="field">
                       <label>{t.from}</label>
-                      <input value={form.from} onChange={(e) => set('from', e.target.value)} placeholder={t.fromPh} style={errors.from ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
+                      <input value={form.fromLocation} onChange={(e) => set('fromLocation', e.target.value)} placeholder={t.fromPh} style={errors.fromLocation ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
                     </div>
                     <div className="field">
                       <label>{t.to}</label>
-                      <input value={form.to} onChange={(e) => set('to', e.target.value)} placeholder={t.toPh} style={errors.to ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
+                      <input value={form.toLocation} onChange={(e) => set('toLocation', e.target.value)} placeholder={t.toPh} style={errors.toLocation ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading} />
                     </div>
                     <div className="field">
                       <label>{t.type}</label>
-                      <select value={form.type} onChange={(e) => set('type', e.target.value)} style={errors.type ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading}>
-                        {t.typeOpt.map((o, i) => <option key={i} value={i === 0 ? '' : o}>{o}</option>)}
+                      <select value={form.serviceTypeId} onChange={(e) => set('serviceTypeId', e.target.value)} style={errors.serviceTypeId ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading || quotable.length === 0}>
+                        <option value="">{t.typePh}</option>
+                        {quotable.map((st) => (
+                          <option key={st.id} value={st.id}>{serviceTypeName(st)}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="field">
@@ -134,13 +174,16 @@ export default function Tender({ lang }: Props) {
                     </div>
                     <div className="field full">
                       <label>{t.heard}</label>
-                      <select value={form.heard} onChange={(e) => set('heard', e.target.value)} style={errors.heard ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading}>
-                        {t.heardOpt.map((o, i) => <option key={i} value={i === 0 ? '' : o}>{o}</option>)}
+                      <select value={form.howHeardFromUs} onChange={(e) => set('howHeardFromUs', e.target.value)} style={errors.howHeardFromUs ? { borderColor: 'var(--ink)' } : {}} disabled={isLoading}>
+                        <option value="">{t.heardPh}</option>
+                        {HEARD_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{lang === 'en' ? o.labelEn : o.labelEs}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="field full">
                       <label>{t.notes}</label>
-                      <textarea rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder={t.notesPh} disabled={isLoading} />
+                      <textarea rows={3} value={form.details} onChange={(e) => set('details', e.target.value)} placeholder={t.notesPh} disabled={isLoading} />
                     </div>
                   </div>
                   {serverError && (

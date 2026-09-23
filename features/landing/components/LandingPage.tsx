@@ -55,7 +55,7 @@ export default function LandingPage({
       <Services lang={lang} services={services} />
       <Gallery lang={lang} items={galleryItems} serviceTypes={serviceTypes} />
       <Testimonials lang={lang} reviews={reviews} />
-      <Tender lang={lang} />
+      <Tender lang={lang} serviceTypes={serviceTypes} />
       <Footer lang={lang} contact={contact} socialLinks={socialLinks} />
     </>
   );
