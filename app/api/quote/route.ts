@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { HEARD_OPTIONS } from '@/features/keystone/lib/heard-options';
+import { saveQuoteRequest } from '@/features/landing/lib/saveQuoteRequest';
+import { normalizeQuotePayload, type NormalizedQuote } from './validate';
+
 // Constructed on first request, not at module scope: the Resend constructor
 // throws when RESEND_API_KEY is unset, and Next evaluates module scope while
 // collecting page data during `next build`. A module-scope client therefore
@@ -45,48 +49,12 @@ function esc(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-interface QuotePayload {
-  name: string;
-  from: string;
-  to: string;
-  type: string;
-  phone: string;
-  heard: string;
-  notes?: string;
+/** The email is Spanish, so the stored key is rendered with its Spanish label. */
+function heardLabelEs(p: NormalizedQuote): string {
+  return HEARD_OPTIONS.find((o) => o.value === p.howHeardFromUs)?.labelEs ?? '';
 }
 
-// Server-side validation — the client validates too, but we never trust it alone.
-function validate(data: unknown): { ok: boolean; errors: string[] } {
-  if (!data || typeof data !== 'object') return { ok: false, errors: ['Invalid payload'] };
-
-  const d = data as Record<string, unknown>;
-  const errors: string[] = [];
-
-  const required: (keyof QuotePayload)[] = ['name', 'from', 'to', 'type', 'phone', 'heard'];
-  for (const field of required) {
-    if (!d[field] || typeof d[field] !== 'string' || !(d[field] as string).trim()) {
-      errors.push(`${field} is required`);
-    }
-  }
-
-  if (typeof d.phone === 'string' && d.phone.trim().length < 7) {
-    errors.push('Phone number is too short');
-  }
-
-  const maxLen: Partial<Record<keyof QuotePayload, number>> = {
-    name: 120, from: 100, to: 100, type: 60,
-    phone: 30, heard: 80, notes: 1200,
-  };
-  for (const [field, max] of Object.entries(maxLen)) {
-    if (typeof d[field] === 'string' && (d[field] as string).length > max) {
-      errors.push(`${field} exceeds maximum length`);
-    }
-  }
-
-  return { ok: errors.length === 0, errors };
-}
-
-function buildEmail(p: QuotePayload): string {
+function buildEmail(p: NormalizedQuote, serviceTypeLabel: string): string {
   const whatsappHref = `https://wa.me/${p.phone.replace(/\D/g, '')}`;
   const row = (label: string, value: string) => `
     <tr>
@@ -109,12 +77,12 @@ function buildEmail(p: QuotePayload): string {
 
     <div style="background:#f4f4f3;padding:36px 40px;border-radius:0 0 20px 20px;">
       <table style="width:100%;border-collapse:collapse;">
-        ${row('Cliente', esc(p.name))}
-        ${row('Ruta', `${esc(p.from)} → ${esc(p.to)}`)}
-        ${row('Tipo de servicio', esc(p.type))}
+        ${row('Cliente', esc(p.fullName))}
+        ${row('Ruta', `${esc(p.fromLocation)} → ${esc(p.toLocation)}`)}
+        ${serviceTypeLabel ? row('Tipo de servicio', esc(serviceTypeLabel)) : ''}
         ${row('Teléfono', esc(p.phone))}
-        ${row('¿Cómo nos conoció?', esc(p.heard))}
-        ${p.notes?.trim() ? row('Detalles adicionales', esc(p.notes)) : ''}
+        ${heardLabelEs(p) ? row('¿Cómo nos conoció?', esc(heardLabelEs(p))) : ''}
+        ${p.details ? row('Detalles adicionales', esc(p.details)) : ''}
       </table>
 
       <div style="margin-top:32px;">
@@ -158,19 +126,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { ok, errors } = validate(body);
-  if (!ok) {
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
+  const result = normalizeQuotePayload(body);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: result.errors },
+      { status: 400 }
+    );
+  }
+  const quote = result.value;
+
+  // Storing the request and emailing about it are independent attempts to not
+  // lose the lead, so neither failure cancels the other: a database hiccup must
+  // not cost us a lead that could still be emailed, and a Resend outage must
+  // not fail a visitor whose request we already stored. The visitor only hears
+  // that it failed when *both* have failed and nothing survived.
+  let savedId: string | null = null;
+  let serviceTypeLabel = quote.serviceTypeLabel;
+  try {
+    const saved = await saveQuoteRequest(quote);
+    savedId = saved.id;
+    serviceTypeLabel = saved.serviceTypeNameEs;
+  } catch (err) {
+    console.error('[quote] could not store the request; still emailing it:', err);
   }
 
-  const payload = body as QuotePayload;
-
+  let emailed = false;
   try {
     const { error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to: BUSINESS_EMAIL,
-      subject: `Cotización: ${payload.name} · ${payload.from} → ${payload.to}`,
-      html: buildEmail(payload),
+      subject: `Cotización: ${quote.fullName} · ${quote.fromLocation} → ${quote.toLocation}`,
+      html: buildEmail(quote, serviceTypeLabel),
       // reply-to isn't set because the client only provided a phone number.
       // The WhatsApp link in the email body is the response channel.
     });
@@ -178,12 +164,18 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Resend returned an API-level error (e.g. unverified domain)
       console.error('[quote] Resend API error:', error);
-      return NextResponse.json({ error: 'Failed to send email' }, { status: 502 });
+    } else {
+      emailed = true;
     }
-
-    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[quote] Unexpected error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('[quote] Resend threw:', err);
   }
+
+  // Nothing survived — neither a row nor a notification — so this one really is
+  // lost, and the visitor needs to know to try again.
+  if (!savedId && !emailed) {
+    return NextResponse.json({ error: 'Could not record the request' }, { status: 502 });
+  }
+
+  return NextResponse.json({ success: true });
 }
