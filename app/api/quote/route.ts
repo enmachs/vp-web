@@ -135,27 +135,27 @@ export async function POST(req: NextRequest) {
   }
   const quote = result.value;
 
-  // Persist before emailing: the row is the durable record, the email is a
-  // notification. Neither failure may cancel the other — a database hiccup must
-  // not cost us a lead that would previously at least have been emailed, and a
-  // Resend outage must not fail a visitor whose request we already stored.
-  let savedId: string | null = null;
-  let serviceTypeLabel = quote.serviceTypeLabel;
+  // The stored row is the record of the request; the email is only a
+  // notification about it. So persisting is a precondition for notifying — if
+  // the write fails we tell the visitor it failed and send nothing, rather than
+  // emailing about a request that was never recorded.
+  let saved: Awaited<ReturnType<typeof saveQuoteRequest>>;
   try {
-    const saved = await saveQuoteRequest(quote);
-    savedId = saved.id;
-    serviceTypeLabel = saved.serviceTypeNameEs;
+    saved = await saveQuoteRequest(quote);
   } catch (err) {
-    console.error('[quote] could not store the request; still emailing it:', err);
+    console.error('[quote] could not store the request; not emailing it:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
-  let emailed = false;
+  // Past this point the request is safely recorded and visible in the
+  // dashboard, so a Resend outage is our problem, not the visitor's: log it and
+  // still report success.
   try {
     const { error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to: BUSINESS_EMAIL,
       subject: `Cotización: ${quote.fullName} · ${quote.fromLocation} → ${quote.toLocation}`,
-      html: buildEmail(quote, serviceTypeLabel),
+      html: buildEmail(quote, saved.serviceTypeNameEs),
       // reply-to isn't set because the client only provided a phone number.
       // The WhatsApp link in the email body is the response channel.
     });
@@ -163,15 +163,9 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Resend returned an API-level error (e.g. unverified domain)
       console.error('[quote] Resend API error:', error);
-    } else {
-      emailed = true;
     }
   } catch (err) {
     console.error('[quote] Resend threw:', err);
-  }
-
-  if (!savedId && !emailed) {
-    return NextResponse.json({ error: 'Failed to send email' }, { status: 502 });
   }
 
   return NextResponse.json({ success: true });

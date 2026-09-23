@@ -86,13 +86,10 @@ export default function Tender({ lang, serviceTypes }: Props) {
       if (res.ok) {
         setStatus('success');
       } else {
-        const data = await res.json().catch(() => ({}));
-        // 429 = rate limited; show a friendly message
-        if (res.status === 429) {
-          setServerError(t.errors.rateLimited);
-        } else {
-          setServerError(data.error ?? t.errors.generic);
-        }
+        // The API's own error strings are English and meant for logs, so the
+        // visitor gets the localized copy instead. 429 is the one case worth
+        // distinguishing, because waiting actually fixes it.
+        setServerError(res.status === 429 ? t.errors.rateLimited : t.errors.generic);
         setStatus('error');
       }
     } catch {

@@ -10,6 +10,15 @@ vi.mock("resend", () => ({
   },
 }));
 
+// Spied rather than replaced: the real implementation runs unless a test makes
+// it fail, which is how the "database is down" case is exercised.
+vi.mock("@/features/landing/lib/saveQuoteRequest", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/features/landing/lib/saveQuoteRequest")
+  >();
+  return { ...actual, saveQuoteRequest: vi.fn(actual.saveQuoteRequest) };
+});
+
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 describe.skipIf(!hasDatabase)("QuoteRequest capture", () => {
@@ -44,6 +53,7 @@ describe.skipIf(!hasDatabase)("QuoteRequest capture", () => {
   afterEach(async () => {
     sendMock.mockClear();
     sendMock.mockImplementation(async () => ({ data: { id: "mock" }, error: null }));
+    vi.mocked(saveQuoteRequest).mockClear();
     // delete is denyAll, so teardown has to go through sudo.
     for (const id of createdQuoteIds.splice(0)) {
       await sudo.db.QuoteRequest.deleteOne({ where: { id } }).catch(() => {});
@@ -159,7 +169,23 @@ describe.skipIf(!hasDatabase)("QuoteRequest capture", () => {
       createdQuoteIds.push(rows[0].id);
     });
 
-    it("still succeeds, and still stores the lead, when Resend fails", async () => {
+    it("reports failure and sends nothing when the row cannot be stored", async () => {
+      vi.mocked(saveQuoteRequest).mockRejectedValueOnce(new Error("database is down"));
+
+      const res = await post(payload({ fullName: "__test-Gabo" }));
+      expect(res.status).toBe(500);
+      // The email is a notification *about* a stored request, so an unstored
+      // request must not produce one.
+      expect(sendMock).not.toHaveBeenCalled();
+
+      const rows = await sudo.query.QuoteRequest.findMany({
+        where: { fullName: { equals: "__test-Gabo" } },
+        query: "id",
+      });
+      expect(rows).toHaveLength(0);
+    });
+
+    it("still succeeds, having stored the lead, when only Resend fails", async () => {
       sendMock.mockImplementation(async () => {
         throw new Error("Resend is down");
       });
