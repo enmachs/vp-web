@@ -135,27 +135,28 @@ export async function POST(req: NextRequest) {
   }
   const quote = result.value;
 
-  // The stored row is the record of the request; the email is only a
-  // notification about it. So persisting is a precondition for notifying — if
-  // the write fails we tell the visitor it failed and send nothing, rather than
-  // emailing about a request that was never recorded.
-  let saved: Awaited<ReturnType<typeof saveQuoteRequest>>;
+  // Storing the request and emailing about it are independent attempts to not
+  // lose the lead, so neither failure cancels the other: a database hiccup must
+  // not cost us a lead that could still be emailed, and a Resend outage must
+  // not fail a visitor whose request we already stored. The visitor only hears
+  // that it failed when *both* have failed and nothing survived.
+  let savedId: string | null = null;
+  let serviceTypeLabel = quote.serviceTypeLabel;
   try {
-    saved = await saveQuoteRequest(quote);
+    const saved = await saveQuoteRequest(quote);
+    savedId = saved.id;
+    serviceTypeLabel = saved.serviceTypeNameEs;
   } catch (err) {
-    console.error('[quote] could not store the request; not emailing it:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('[quote] could not store the request; still emailing it:', err);
   }
 
-  // Past this point the request is safely recorded and visible in the
-  // dashboard, so a Resend outage is our problem, not the visitor's: log it and
-  // still report success.
+  let emailed = false;
   try {
     const { error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to: BUSINESS_EMAIL,
       subject: `Cotización: ${quote.fullName} · ${quote.fromLocation} → ${quote.toLocation}`,
-      html: buildEmail(quote, saved.serviceTypeNameEs),
+      html: buildEmail(quote, serviceTypeLabel),
       // reply-to isn't set because the client only provided a phone number.
       // The WhatsApp link in the email body is the response channel.
     });
@@ -163,9 +164,17 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Resend returned an API-level error (e.g. unverified domain)
       console.error('[quote] Resend API error:', error);
+    } else {
+      emailed = true;
     }
   } catch (err) {
     console.error('[quote] Resend threw:', err);
+  }
+
+  // Nothing survived — neither a row nor a notification — so this one really is
+  // lost, and the visitor needs to know to try again.
+  if (!savedId && !emailed) {
+    return NextResponse.json({ error: 'Could not record the request' }, { status: 502 });
   }
 
   return NextResponse.json({ success: true });

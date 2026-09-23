@@ -169,17 +169,35 @@ describe.skipIf(!hasDatabase)("QuoteRequest capture", () => {
       createdQuoteIds.push(rows[0].id);
     });
 
-    it("reports failure and sends nothing when the row cannot be stored", async () => {
+    // Storing and emailing are independent attempts not to lose the lead, so the
+    // visitor only sees an error when both have failed.
+    it("still succeeds, by email, when the row cannot be stored", async () => {
       vi.mocked(saveQuoteRequest).mockRejectedValueOnce(new Error("database is down"));
 
       const res = await post(payload({ fullName: "__test-Gabo" }));
-      expect(res.status).toBe(500);
-      // The email is a notification *about* a stored request, so an unstored
-      // request must not produce one.
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ success: true });
+      // The lead still reaches the business, even with nothing written down.
+      expect(sendMock).toHaveBeenCalledOnce();
 
       const rows = await sudo.query.QuoteRequest.findMany({
         where: { fullName: { equals: "__test-Gabo" } },
+        query: "id",
+      });
+      expect(rows).toHaveLength(0);
+    });
+
+    it("reports failure only when the row and the email both fail", async () => {
+      vi.mocked(saveQuoteRequest).mockRejectedValueOnce(new Error("database is down"));
+      sendMock.mockImplementation(async () => {
+        throw new Error("Resend is down");
+      });
+
+      const res = await post(payload({ fullName: "__test-Hugo" }));
+      expect(res.status).toBe(502);
+
+      const rows = await sudo.query.QuoteRequest.findMany({
+        where: { fullName: { equals: "__test-Hugo" } },
         query: "id",
       });
       expect(rows).toHaveLength(0);
