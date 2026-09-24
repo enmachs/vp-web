@@ -793,6 +793,100 @@ input ReviewCreateInput {
   createdAt: DateTime
 }
 
+type QuoteRequest {
+  id: ID!
+  fullName: String
+  fromLocation: String
+  toLocation: String
+  serviceType: ServiceType
+  serviceTypeLabel: String
+  phone: String
+  howHeardFromUs: String
+  details: String
+  language: String
+  createdAt: DateTime
+}
+
+input QuoteRequestWhereUniqueInput {
+  id: ID
+}
+
+input QuoteRequestWhereInput {
+  AND: [QuoteRequestWhereInput!]
+  OR: [QuoteRequestWhereInput!]
+  NOT: [QuoteRequestWhereInput!]
+  id: IDFilter
+  fullName: StringFilter
+  fromLocation: StringFilter
+  toLocation: StringFilter
+  serviceType: ServiceTypeWhereInput
+  serviceTypeLabel: StringFilter
+  phone: StringFilter
+  howHeardFromUs: StringNullableFilter
+  details: StringFilter
+  language: StringNullableFilter
+  createdAt: DateTimeNullableFilter
+}
+
+input StringNullableFilter {
+  equals: String
+  in: [String!]
+  notIn: [String!]
+  lt: String
+  lte: String
+  gt: String
+  gte: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  mode: QueryMode
+  not: StringNullableFilter
+}
+
+input QuoteRequestOrderByInput {
+  id: OrderDirection
+  fullName: OrderDirection
+  fromLocation: OrderDirection
+  toLocation: OrderDirection
+  serviceTypeLabel: OrderDirection
+  phone: OrderDirection
+  howHeardFromUs: OrderDirection
+  details: OrderDirection
+  language: OrderDirection
+  createdAt: OrderDirection
+}
+
+input QuoteRequestUpdateInput {
+  fullName: String
+  fromLocation: String
+  toLocation: String
+  serviceType: ServiceTypeRelateToOneForUpdateInput
+  serviceTypeLabel: String
+  phone: String
+  howHeardFromUs: String
+  details: String
+  language: String
+  createdAt: DateTime
+}
+
+input QuoteRequestUpdateArgs {
+  where: QuoteRequestWhereUniqueInput!
+  data: QuoteRequestUpdateInput!
+}
+
+input QuoteRequestCreateInput {
+  fullName: String
+  fromLocation: String
+  toLocation: String
+  serviceType: ServiceTypeRelateToOneForCreateInput
+  serviceTypeLabel: String
+  phone: String
+  howHeardFromUs: String
+  details: String
+  language: String
+  createdAt: DateTime
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -847,6 +941,12 @@ type Mutation {
   updateReviews(data: [ReviewUpdateArgs!]!): [Review]
   deleteReview(where: ReviewWhereUniqueInput!): Review
   deleteReviews(where: [ReviewWhereUniqueInput!]!): [Review]
+  createQuoteRequest(data: QuoteRequestCreateInput!): QuoteRequest
+  createQuoteRequests(data: [QuoteRequestCreateInput!]!): [QuoteRequest]
+  updateQuoteRequest(where: QuoteRequestWhereUniqueInput!, data: QuoteRequestUpdateInput!): QuoteRequest
+  updateQuoteRequests(data: [QuoteRequestUpdateArgs!]!): [QuoteRequest]
+  deleteQuoteRequest(where: QuoteRequestWhereUniqueInput!): QuoteRequest
+  deleteQuoteRequests(where: [QuoteRequestWhereUniqueInput!]!): [QuoteRequest]
   endSession: Boolean!
   authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
   createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
@@ -907,6 +1007,9 @@ type Query {
   review(where: ReviewWhereUniqueInput!): Review
   reviews(where: ReviewWhereInput! = {}, orderBy: [ReviewOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ReviewWhereUniqueInput): [Review!]
   reviewsCount(where: ReviewWhereInput! = {}): Int
+  quoteRequest(where: QuoteRequestWhereUniqueInput!): QuoteRequest
+  quoteRequests(where: QuoteRequestWhereInput! = {}, orderBy: [QuoteRequestOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: QuoteRequestWhereUniqueInput): [QuoteRequest!]
+  quoteRequestsCount(where: QuoteRequestWhereInput! = {}): Int
   keystone: KeystoneMeta!
   authenticatedItem: AuthenticatedItem
   validateUserPasswordResetToken(email: String!, token: String!): ValidateUserPasswordResetTokenResult

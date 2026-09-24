@@ -38,16 +38,17 @@ model Role {
 }
 
 model ServiceType {
-  id           String              @id @default(cuid())
-  key          String              @unique @default("")
-  kind         ServiceTypeKindType @default(service)
-  nameEs       String              @default("")
-  nameEn       String              @default("")
-  services     Service[]           @relation("Service_serviceType")
-  galleryItems GalleryItem[]       @relation("GalleryItem_serviceType")
-  sortOrder    Int                 @default(0)
-  isPublished  Boolean             @default(true)
-  createdAt    DateTime?           @default(now())
+  id                            String              @id @default(cuid())
+  key                           String              @unique @default("")
+  kind                          ServiceTypeKindType @default(service)
+  nameEs                        String              @default("")
+  nameEn                        String              @default("")
+  services                      Service[]           @relation("Service_serviceType")
+  galleryItems                  GalleryItem[]       @relation("GalleryItem_serviceType")
+  sortOrder                     Int                 @default(0)
+  isPublished                   Boolean             @default(true)
+  createdAt                     DateTime?           @default(now())
+  from_QuoteRequest_serviceType QuoteRequest[]      @relation("QuoteRequest_serviceType")
 }
 
 model Service {
@@ -124,6 +125,23 @@ model Review {
   sortOrder   Int       @default(0)
   isPublished Boolean   @default(true)
   createdAt   DateTime? @default(now())
+}
+
+model QuoteRequest {
+  id               String       @id @default(cuid())
+  fullName         String       @default("")
+  fromLocation     String       @default("")
+  toLocation       String       @default("")
+  serviceType      ServiceType? @relation("QuoteRequest_serviceType", fields: [serviceTypeId], references: [id])
+  serviceTypeId    String?      @map("serviceType")
+  serviceTypeLabel String       @default("")
+  phone            String       @default("")
+  howHeardFromUs   String?
+  details          String       @default("")
+  language         String?
+  createdAt        DateTime?    @default(now())
+
+  @@index([serviceTypeId])
 }
 
 enum ServiceTypeKindType {

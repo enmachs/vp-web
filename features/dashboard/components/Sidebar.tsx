@@ -56,7 +56,10 @@ export function Sidebar({ adminMeta, user }: SidebarProps) {
   const pathname = usePathname()
 
   const lists = adminMeta?.lists || {}
-  const listsArray = Object.values(lists)
+  // Respect ui.isHidden, the way the dashboard home already does. Without
+  // this a user who cannot query a list still sees it in the nav and lands
+  // on a permanently empty page.
+  const listsArray = Object.values(lists).filter((list: any) => !list.isHidden)
 
   // Function to check if a link is active
   const isLinkActive = React.useCallback(
