@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
     // That fails locally here, so fonts silently fall back to Arial. System CAs
     // match Node/curl. Production `next build` uses webpack and is unaffected.
     turbopackUseSystemTlsCerts: true,
+    serverActions: {
+      bodySizeLimit: 3670016, // 3.5 MB
+    },
   },
   // Workaround since we diverged from Keystone reltionship and document views
   // typescript: {
